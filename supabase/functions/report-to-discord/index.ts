@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   if (attachment && !/^https?:\/\//i.test(attachment)) { const signed = await db.storage.from("attachments").createSignedUrl(attachment, 3600); attachment = signed.data?.signedUrl || ""; }
   const embeds = [{
     title: "TvCord content report",
-    color: report.reason === "underage_safety" || report.reason === "sexual_content" ? 15158332 : 15844367,
+    color: report.reason === "underage_safety" || report.reason === "sexual_content" || report.reason === "grooming" ? 15158332 : 15844367,
     fields: [
       { name: "Reason", value: safe(report.reason, 100), inline: true },
       { name: "Status", value: safe(report.status, 50), inline: true },
