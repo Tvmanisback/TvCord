@@ -13,6 +13,11 @@ create table if not exists public.tvcord_bots (
   created_at timestamptz not null default now()
 );
 
+-- Update older installations that used TvCord.* as the bot entry filename.
+alter table public.tvcord_bots drop constraint if exists tvcord_bots_filename_check;
+alter table public.tvcord_bots add constraint tvcord_bots_filename_check
+  check (filename in ('bot.js','bot.py','bot.rb','bot.lua'));
+
 create index if not exists tvcord_bots_owner_created_idx
   on public.tvcord_bots(owner_id, created_at desc);
 
