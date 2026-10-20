@@ -20,7 +20,7 @@ begin
     raise exception 'TvCord moderation: repeated-character spam was blocked.';
   end if;
 
-  if body ~* '(discord[.]gift|nitro-free[.]|steamcommunitу[.]|free-nitro[.])' then
+  if body ~* '(discord[.]gift|nitro-free[.]|steamcommunit(y|у)[.]|free-nitro[.])' then
     raise exception 'TvCord moderation: a common phishing or fake-reward link was blocked.';
   end if;
 
