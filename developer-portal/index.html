@@ -31,7 +31,7 @@ function checkFile(){
  reader.onload=()=>{
   if($('sourceFile').files?.[0]!==file)return;
   const source=String(reader.result||'');
-  const validImport = lang==='JavaScript' ? /from\s+[\"']\.\/TvCord\.js[\"']|require\([\"']\.\/TvCord\.js[\"']\)/.test(source) : lang==='Python' ? /from\s+TvCord\s+import|import\s+TvCord/.test(source) : lang==='Ruby' ? /require_relative\s+[\"']TvCord[\"']|require\s+[\"']\.\/TvCord[\"']/.test(source) : /require\s*\(?\s*[\"']\.\/TvCord\.lua[\"']/.test(source);\n  if(!validImport){setStatus('Your bot file must import the matching TvCord API library. Download it with the button below.');return}
+  const validImport = lang==='JavaScript' ? /from\s+[\"']\.\/TvCord\.js[\"']|require\([\"']\.\/TvCord\.js[\"']\)/.test(source) : lang==='Python' ? /from\s+TvCord\s+import|import\s+TvCord/.test(source) : lang==='Ruby' ? /require_relative\s+[\"']TvCord[\"']|require\s+[\"']\.\/TvCord[\"']/.test(source) : /require\s*\(?\s*[\"'](?:\.\/)?TvCord(?:\.lua)?[\"']/.test(source);\n  if(!validImport){setStatus('Your bot file must import the matching TvCord API library. Download it with the button below.');return}
   validFile={file,source,language:lang,filename:file.name};
   setStatus('✓ Valid '+lang+' source · '+file.name+' · '+file.size.toLocaleString()+' bytes',true);
   $('createBtn').disabled=!session;
