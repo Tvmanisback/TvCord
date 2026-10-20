@@ -179,3 +179,79 @@ $$;
 
 revoke all on function public.tvcord_bot_send_channel_message(text,uuid,text) from public, anon, authenticated;
 grant execute on function public.tvcord_bot_send_channel_message(text,uuid,text) to service_role;
+
+
+-- The attachment guard also runs on every message, including bot messages.
+-- Permit only token-validated bot inserts marked by the trusted RPC; bots cannot
+-- attach files. Preserve the normal user restriction and private-upload checks.
+create or replace function public.tvcord_attachment_message_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, storage
+as $function$
+declare
+  channel_server uuid;
+  sender uuid;
+begin
+  if new.bot_id is not null and new.user_id is null
+     and current_setting('tvcord.bot_sender_id', true) = new.bot_id::text then
+    select owner_id into sender
+    from public.tvcord_bots
+    where id = new.bot_id;
+
+    if sender is null then
+      raise exception 'Unknown bot sender.';
+    end if;
+    if new.attachment_url is not null then
+      raise exception 'Bots cannot send attachments.';
+    end if;
+    if public.tvcord_user_is_restricted(sender) then
+      raise exception 'The bot owner account is restricted from sending messages.';
+    end if;
+  else
+    if auth.uid() is null
+       or new.user_id is distinct from auth.uid()
+       or new.bot_id is not null then
+      raise exception 'Messages must be sent by the signed-in account.';
+    end if;
+    sender := auth.uid();
+
+    if public.tvcord_user_is_restricted(sender) then
+      raise exception 'This account is restricted from sending messages.';
+    end if;
+  end if;
+
+  select server_id into channel_server
+  from public.channels
+  where id = new.channel_id;
+
+  if channel_server is null or not exists (
+    select 1 from public.server_members sm
+    where sm.server_id = channel_server and sm.user_id = sender
+  ) then
+    raise exception 'You must be a member of this server to send messages.';
+  end if;
+
+  if new.attachment_url is not null then
+    if new.attachment_url like 'http://%'
+       or new.attachment_url like 'https://%'
+       or new.attachment_url like '/%'
+       or new.attachment_url like '%..%' then
+      raise exception 'Attachments must use a private storage object path.';
+    end if;
+
+    if not exists (
+      select 1
+      from storage.objects o
+      where o.bucket_id = 'attachments'
+        and o.name = new.attachment_url
+        and (storage.foldername(o.name))[1] = auth.uid()::text
+    ) then
+      raise exception 'Attachment was not found in your private upload folder.';
+    end if;
+  end if;
+
+  return new;
+end;
+$function$;
