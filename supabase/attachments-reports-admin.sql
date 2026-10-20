@@ -24,6 +24,7 @@ create table if not exists public.attachment_scan_results (
 );
 alter table public.attachment_scan_results enable row level security;
 revoke all on public.attachment_scan_results from anon, authenticated;
+grant all on public.attachment_scan_results to service_role;
 
 -- Stop the old public media policy from making private attachments readable.
 drop policy if exists "Public can view TvCord media" on storage.objects;
