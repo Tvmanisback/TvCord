@@ -8,8 +8,26 @@
 </style>
 </head>
 <body>
-<div id="root"><section class="auth"><div class="authbox"><div class="logo">T</div><p class="muted">YOUR PEOPLE. YOUR SPACE.</p><h1>Welcome to TvCord</h1><p class="muted">Chat with friends. Customize everything. No premium tier.</p><p id="configError" class="muted">Connecting…</p><form id="authForm"><label class="field" id="nameField">Username<input id="username" maxlength="32" placeholder="Your display name"></label><label class="field">Email<input id="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="field">Password<input id="password" type="password" minlength="6" required autocomplete="current-password" placeholder="At least 6 characters"></label><button class="primary full" id="authSubmit">Log in</button></form><p><button id="authSwitch" class="secondary full" style="margin-top:10px">Need an account? Sign up</button></p><p class="muted" style="font-size:11px">Keep your password private. GIF avatars and custom colors are free.</p></div></section></div>
+<div id="root"><section class="auth"><div class="authbox"><div class="logo">T</div><p class="muted">YOUR PEOPLE. YOUR SPACE.</p><h1>Welcome to TvCord</h1><p class="muted">Chat with friends. Customize everything. No premium tier.</p><p id="configError" class="muted">Starting TvCord…</p><form id="authForm"><label class="field" id="nameField">Username<input id="username" maxlength="32" placeholder="Your display name"></label><label class="field">Email<input id="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="field">Password<input id="password" type="password" minlength="6" required autocomplete="current-password" placeholder="At least 6 characters"></label><button class="primary full" id="authSubmit">Log in</button></form><p><button id="authSwitch" class="secondary full" style="margin-top:10px">Need an account? Sign up</button></p><p class="muted" style="font-size:11px">Keep your password private. GIF avatars and custom colors are free.</p></div></section></div>
 <div id="modalRoot"></div><div id="notice" class="notice hidden"></div>
+<script>
+(function(){
+  var timer=setTimeout(function(){
+    var s=document.getElementById('configError');
+    if(s && /^(Starting TvCord…|Connecting…)$/.test(s.textContent.trim())){
+      s.textContent='TvCord startup script did not finish loading. Try opening the site in a new tab or check whether your browser/network blocks JavaScript modules.';
+    }
+  },15000);
+  window.addEventListener('error',function(e){
+    var s=document.getElementById('configError');
+    if(s){s.textContent='TvCord script error: '+(e.message||'JavaScript failed to load');}
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    var s=document.getElementById('configError');
+    if(s){s.textContent='TvCord startup error: '+(e.reason&&e.reason.message||'Connection failed');}
+  });
+})();
+</script>
 <script type="module">
 let createClient;
 const importTimeout = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('CDN import timed out')), ms));
