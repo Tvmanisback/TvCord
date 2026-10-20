@@ -39,10 +39,13 @@ Deno.serve(async (req) => {
     home = updated.data;
   }
 
-  const { error: memberError } = await db.from("server_members").upsert([
-    { server_id: home.id, user_id: adminId, role: "owner" },
-    { server_id: home.id, user_id: user.id, role: user.id === adminId ? "owner" : "member" },
-  ], { onConflict: "server_id,user_id" });
+  const memberships = user.id === adminId
+    ? [{ server_id: home.id, user_id: adminId, role: "owner" }]
+    : [
+        { server_id: home.id, user_id: adminId, role: "owner" },
+        { server_id: home.id, user_id: user.id, role: "member" },
+      ];
+  const { error: memberError } = await db.from("server_members").upsert(memberships, { onConflict: "server_id,user_id" });
   if (memberError) return json(500, { error: "Could not add the signed-in user to the TvCord home server: " + memberError.message });
 
   const { data: existingChannels, error: channelReadError } = await db.from("channels").select("name,type").eq("server_id", home.id);
