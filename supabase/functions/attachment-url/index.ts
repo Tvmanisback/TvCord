@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   const userClient = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return json(401, { error: "Invalid session." });
-  let body: { path?: string };
+  let body: { path?: string; download?: boolean };
   try { body = await req.json(); } catch { return json(400, { error: "Invalid request." }); }
   const path = String(body.path || "");
   if (!path || path.length > 300 || path.includes("..") || path.startsWith("/") || path.startsWith("http")) return json(400, { error: "Invalid attachment path." });
@@ -34,7 +34,8 @@ Deno.serve(async (req) => {
   const filename = String(message.attachment_name || "attachment").replace(/[\\r\\n"]/g, "_").slice(0, 180);
   const isImage = /\\.(png|jpe?g|gif|webp|avif)$/i.test(filename);
   // Non-image uploads are forced to download rather than being rendered inline by the browser.
-  const { data, error } = await db.storage.from("attachments").createSignedUrl(path, 3600, isImage ? {} : { download: filename });
+  const forceDownload = body.download === true || !isImage;
+  const { data, error } = await db.storage.from("attachments").createSignedUrl(path, 3600, forceDownload ? { download: filename } : {});
   if (error || !data?.signedUrl) return json(404, { error: "Attachment could not be opened." });
   return json(200, { url: data.signedUrl, expires_in: 3600 });
 });
