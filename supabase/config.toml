@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.admin-ban]
 verify_jwt = true
+
+[functions.moderate-attachment]
+verify_jwt = true
