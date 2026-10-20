@@ -1,6 +1,6 @@
 -- TvCord attachment/report/admin hardening migration.
 -- Run after schema.sql, social.sql, and launch-safety.sql in Supabase SQL Editor.
--- This configures a 50 MiB upload cap. It does NOT perform malware or sexual-image scanning.
+-- This configures a 50 MiB upload cap and requires a successful server-side scan verdict before an attachment can be published. Scanner providers must be configured in Edge Function secrets.
 create extension if not exists pgcrypto;
 
 -- Keep attachments private. Only the authenticated Edge Functions can read them and mint short-lived signed URLs after membership checks.
