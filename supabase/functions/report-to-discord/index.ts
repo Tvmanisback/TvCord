@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
       { name: "Message text", value: safe(message?.content || "(no text; possibly an attachment)") },
       { name: "Attachment", value: attachment ? attachment : "(none)" },
     ],
+    ...(attachment && /\\.(png|jpe?g|gif|webp)(?:[?#]|$)/i.test(attachment) ? { image: { url: attachment } } : {}),
     timestamp: report.created_at,
     footer: { text: "TvCord moderation • Report ID " + report.id },
   }];
