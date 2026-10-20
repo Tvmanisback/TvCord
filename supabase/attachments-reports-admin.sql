@@ -52,6 +52,8 @@ create table if not exists public.content_reports (
   status text not null default 'open' check (status in ('open','reviewing','resolved','dismissed')),
   created_at timestamptz not null default now()
 );
+alter table public.content_reports drop constraint if exists content_reports_reason_check;
+alter table public.content_reports add constraint content_reports_reason_check check (reason in ('sexual_content','grooming','harassment','hate','spam','scam','self_bot','underage_safety','violence','privacy','other'));
 alter table public.content_reports enable row level security;
 revoke all on public.content_reports from anon, authenticated;
 grant insert, select on public.content_reports to authenticated;
