@@ -240,8 +240,30 @@ end $$;
 
 revoke all on function public.is_tvcord_admin() from public,anon;
 grant execute on function public.is_tvcord_admin() to authenticated;
-revoke all on function public.give_tvboosters(uuid,integer) from public,anon;
-grant execute on function public.give_tvboosters(uuid,integer) to authenticated;
+revoke all on function public.give_tvboosters(uuid,integer) from public,anon,authenticated;
+grant execute on function public.give_tvboosters(uuid,integer) to service_role;
+
+-- This grant RPC is backend-only. The admin-ban Edge Function checks TVCORD_ADMIN_USER_IDS first.
+create or replace function public.admin_give_tvboosters(target_user uuid, amount integer)
+returns integer language plpgsql security definer set search_path=public
+as $
+declare n integer; home_id uuid; month_date date := date_trunc('month',now())::date;
+begin
+ if target_user is null then raise exception 'Recipient is required.'; end if;
+ if amount<1 or amount>100 then raise exception 'Amount must be between 1 and 100.'; end if;
+ select s.id into home_id from public.servers s where lower(s.name)='tvcord' order by s.created_at asc limit 1;
+ if home_id is null then raise exception 'Official TvCord server was not found.'; end if;
+ if not exists(select 1 from public.server_members sm where sm.server_id=home_id and sm.user_id=target_user) then
+   raise exception 'The recipient must be a member of the official TvCord server.';
+ end if;
+ insert into public.tvbooster_wallets(user_id,month_start,balance)
+ values(target_user,month_date,2+amount)
+ on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
+ returning balance into n;
+ return n;
+end $;
+revoke all on function public.admin_give_tvboosters(uuid,integer) from public,anon,authenticated;
+grant execute on function public.admin_give_tvboosters(uuid,integer) to service_role;
 
 -- Only built-in server owners/admins may create roles or assign them.
 -- A custom role can grant server-settings access, but cannot grant permissions onward.
