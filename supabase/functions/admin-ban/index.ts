@@ -22,13 +22,20 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return json(401, { error: "Invalid session" });
   if (!admins.includes(user.id.toLowerCase())) return json(403, { error: "Admin access denied: the signed-in user UUID is not in TVCORD_ADMIN_USER_IDS. Update the secret with the exact Supabase Auth user UUID, then redeploy this function." });
-  let body: { action?: string; user_id?: string; reason?: string; duration?: string };
+  let body: { action?: string; user_id?: string; reason?: string; duration?: string; amount?: number };
   try { body = await req.json(); } catch { return json(400, { error: "Invalid JSON" }); }
   if (body.action === "check") return json(200, { is_admin: true });
   const target = String(body.user_id || "");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(target)) return json(400, { error: "Enter a valid user UUID" });
-  if (target === user.id) return json(400, { error: "You cannot restrict your own admin account" });
   const db = createClient(url, service);
+  if (body.action === "give_tvboosters") {
+    const amount = Number(body.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) return json(400, { error: "Amount must be a whole number from 1 to 100." });
+    const { data, error } = await db.rpc("admin_give_tvboosters", { target_user: target, amount });
+    if (error) return json(400, { error: error.message });
+    return json(200, { ok: true, message: "Granted " + amount + " TvBoosters. Recipient balance: " + data, balance: data });
+  }
+  if (target === user.id) return json(400, { error: "You cannot restrict your own admin account" });
   if (body.action === "unban") {
     const { error: authBanError } = await db.auth.admin.updateUserById(target, { ban_duration: "none" });
     if (authBanError) return json(500, { error: "Could not remove the Supabase Auth ban: " + authBanError.message });
@@ -36,7 +43,7 @@ Deno.serve(async (req) => {
     if (error) return json(500, { error: "Auth ban removed, but the database restriction could not be removed. Run the TvCord safety migration first." });
     return json(200, { ok: true, message: "Supabase Auth ban and database restriction removed." });
   }
-  if (body.action !== "ban") return json(400, { error: "Action must be check, ban, or unban" });
+  if (body.action !== "ban") return json(400, { error: "Action must be check, give_tvboosters, ban, or unban" });
   const durations: Record<string, number | null> = { "1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000, permanent: null };
   const duration = body.duration || "permanent";
   if (!(duration in durations)) return json(400, { error: "Invalid duration" });
