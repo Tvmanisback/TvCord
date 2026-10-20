@@ -38,7 +38,8 @@ Deno.serve(async (req) => {
     ? await db.from("profiles").select("username").eq("id", report.reported_user_id).maybeSingle()
     : { data: null };
   const safe = (v: unknown, n = 900) => String(v ?? "").slice(0, n);
-  let attachment = safe(message?.attachment_url, 1000);\n  if (attachment && !/^https?:\\/\\//i.test(attachment)) { const signed = await db.storage.from(\"attachments\").createSignedUrl(attachment, 3600); attachment = signed.data?.signedUrl || \"\"; }
+  let attachment = safe(message?.attachment_url, 1000);
+  if (attachment && !/^https?:\\/\\//i.test(attachment)) { const signed = await db.storage.from(\"attachments\").createSignedUrl(attachment, 3600); attachment = signed.data?.signedUrl || \"\"; }
   const embeds = [{
     title: "TvCord content report",
     color: report.reason === "underage_safety" || report.reason === "sexual_content" ? 15158332 : 15844367,
