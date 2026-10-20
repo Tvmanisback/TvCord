@@ -114,7 +114,7 @@ window.tvJoinVoice=async id=>{
   room.on('broadcast',{event:'signal'},async({payload})=>{if(payload?.to!==session.user.id||!payload.from)return;try{await handleVoiceSignal(payload)}catch(e){console.error('Voice signaling failed',e)}});
   room.on('presence',{event:'sync'},async()=>{
    const state=room.presenceState();const next=[];
-   for(const [key,items] of Object.entries(state)){const item=items?.[items.length-1];if(!item)continue;next.push({id:key,username:item.username||'User',avatar_url:item.avatar_url||null,muted:!!item.muted,live:!!item.live});if(key!==session.user.id&&!voicePeers.has(key)){try{const pc=await makePeer(key);const offer=await pc.createOffer();await pc.setLocalDescription(offer);await sendSignal({to:key,from:session.user.id,offer:pc.localDescription})}catch(e){console.warn('Could not connect voice peer',key,e)}}}
+   for(const [key,items] of Object.entries(state)){const item=items?.[items.length-1];if(!item)continue;next.push({id:key,username:item.username||'User',avatar_url:item.avatar_url||null,muted:!!item.muted,live:!!item.live});if(key!==session.user.id&&session.user.id<key&&!voicePeers.has(key)){try{const pc=await makePeer(key);const offer=await pc.createOffer();await pc.setLocalDescription(offer);await sendSignal({to:key,from:session.user.id,offer:pc.localDescription})}catch(e){console.warn('Could not connect voice peer',key,e)}}}
    voiceMembers=next;render();
   });
   room.on('presence',{event:'join'},()=>{});
@@ -136,10 +136,10 @@ window.tvJoinVoice=async id=>{
   window.tvGoLive=async()=>{
    if(voiceScreenStream){voiceScreenStream.getTracks().forEach(t=>t.stop());voiceScreenStream=null;try{await voiceRoom?.track({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:voiceMuted,live:false,joined_at:new Date().toISOString()})}catch{}voiceMembers=voiceMembers.map(m=>m.id===session.user.id?{...m,live:false}:m);render();return}
    if(!navigator.mediaDevices?.getDisplayMedia)return notify('Screen sharing is not supported in this browser.');
-   try{voiceScreenStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});const video=document.getElementById('voice-screen-preview');if(video){video.srcObject=voiceScreenStream;video.classList.remove('hidden');await video.play().catch(()=>{})}
-    const track=voiceScreenStream.getVideoTracks()[0];if(track)track.onended=()=>{if(voiceScreenStream){voiceScreenStream.getTracks().forEach(t=>t.stop());voiceScreenStream=null}window.tvGoLive().catch(()=>{})};
+   try{voiceScreenStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});render();const video=document.getElementById('voice-screen-preview');if(video){video.srcObject=voiceScreenStream;video.classList.remove('hidden');await video.play().catch(()=>{})}
+    const track=voiceScreenStream.getVideoTracks()[0];if(track)track.onended=async()=>{if(voiceScreenStream){voiceScreenStream.getTracks().forEach(t=>t.stop());voiceScreenStream=null}try{await voiceRoom?.track({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:voiceMuted,live:false,joined_at:new Date().toISOString()})}catch{}voiceMembers=voiceMembers.map(m=>m.id===session.user.id?{...m,live:false}:m);render()};
     try{await voiceRoom?.track({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:voiceMuted,live:true,joined_at:new Date().toISOString()})}catch{}
-    voiceMembers=voiceMembers.map(m=>m.id===session.user.id?{...m,live:true}:m);render();notify('Screen sharing started on this device. Remote video streaming needs negotiated screen tracks.');
+    voiceMembers=voiceMembers.map(m=>m.id===session.user.id?{...m,live:true}:m);render();notify('Screen sharing preview is active on this device; remote live video is not transmitted yet.');
    }catch(e){notify('Screen sharing cancelled or unavailable: '+(e.message||'permission denied'))}
   };
   render();
