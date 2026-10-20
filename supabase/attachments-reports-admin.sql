@@ -1,6 +1,6 @@
 -- TvCord attachment/report/admin hardening migration.
 -- Run after schema.sql, social.sql, and launch-safety.sql in Supabase SQL Editor.
--- This configures a private 50 MiB attachment bucket. Images are checked by Google Cloud Vision; other file types are accepted but are NOT malware-scanned.
+-- This configures a private 50 MiB attachment bucket. Images use server-side Hugging Face NSFW classification; non-image files are accepted without scanning.
 create extension if not exists pgcrypto;
 
 -- Keep attachments private. Only the authenticated Edge Functions can read them and mint short-lived signed URLs after membership checks.
