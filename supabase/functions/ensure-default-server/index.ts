@@ -27,37 +27,12 @@ Deno.serve(async (req) => {
   const { data: adminUser, error: adminLookupError } = await db.auth.admin.getUserById(adminId);
   if (adminLookupError || !adminUser?.user) return json(503, { error: "The first ID in TVCORD_ADMIN_USER_IDS must be a valid Supabase Auth user UUID." });
 
-  let { data: home, error } = await db.from("servers").select("id,name,owner_id,invite_code").eq("name", "TvCord").limit(1).maybeSingle();
-  if (error) return json(500, { error: "Could not look up the TvCord home server: " + error.message });
-  if (!home) {
-    const created = await db.from("servers").insert({ name: "TvCord", owner_id: adminId }).select("id,name,owner_id,invite_code").single();
-    if (created.error || !created.data) return json(500, { error: "Could not create the TvCord home server: " + (created.error?.message || "unknown error") });
-    home = created.data;
-  } else if (home.owner_id !== adminId) {
-    const updated = await db.from("servers").update({ owner_id: adminId }).eq("id", home.id).select("id,name,owner_id,invite_code").single();
-    if (updated.error || !updated.data) return json(500, { error: "Could not set the TvCord home server owner: " + (updated.error?.message || "unknown error") });
-    home = updated.data;
+  const { data: homeResult, error: homeError } = await db.rpc("ensure_tvcord_home_server", {
+    admin_id: adminId,
+    joining_user: user.id,
+  });
+  if (homeError || !homeResult?.ok) {
+    return json(500, { error: "Could not prepare the single TvCord home server: " + (homeError?.message || "unknown database error") });
   }
-
-  const memberships = user.id === adminId
-    ? [{ server_id: home.id, user_id: adminId, role: "owner" }]
-    : [
-        { server_id: home.id, user_id: adminId, role: "owner" },
-        { server_id: home.id, user_id: user.id, role: "member" },
-      ];
-  const { error: memberError } = await db.from("server_members").upsert(memberships, { onConflict: "server_id,user_id" });
-  if (memberError) return json(500, { error: "Could not add the signed-in user to the TvCord home server: " + memberError.message });
-
-  const { data: existingChannels, error: channelReadError } = await db.from("channels").select("name,type").eq("server_id", home.id);
-  if (channelReadError) return json(500, { error: "Could not load TvCord home channels: " + channelReadError.message });
-  const wanted = [
-    { server_id: home.id, name: "general", type: "text", position: 0 },
-    { server_id: home.id, name: "voice-lounge", type: "voice", position: 1 },
-  ];
-  const missing = wanted.filter(w => !(existingChannels || []).some(c => c.name === w.name && c.type === w.type));
-  if (missing.length) {
-    const { error: channelError } = await db.from("channels").insert(missing);
-    if (channelError) return json(500, { error: "Could not set up TvCord home channels: " + channelError.message });
-  }
-  return json(200, { ok: true, server_id: home.id, admin_user_id: adminId, is_admin: user.id === adminId });
+  return json(200, homeResult);
 });
