@@ -5,10 +5,10 @@
 </style></head><body>
 <div class="layout"><aside><div class="brand"><span class="mark">T</span><span>TvCord <span class="muted">Developers</span></span></div><a class="nav active" href="#overview">⌂ &nbsp; Overview</a><a class="nav" href="#create">＋ &nbsp; Create a bot</a><a class="nav" href="#mybots">▦ &nbsp; My bots</a><div class="navhint">RESOURCES</div><a class="nav" href="#requirements">▤ &nbsp; Bot requirements</a><a class="nav" href="../tos.html">Terms of Service ↗</a><a class="nav" href="../pap.html">Privacy Policy ↗</a><div class="asidefoot">TvCord Developer Portal<br>External hosting · bot source stays with you</div></aside>
 <main class="main"><section id="overview"><div class="hero"><div><div class="eyebrow">Developer tools</div><h1>Build something for TvCord.</h1><p class="muted">Register a bot, create a private token, and host the code on a service or computer you control.</p></div><button class="btn secondary" id="refreshBtn">Refresh bots</button></div><div class="steps"><div class="step"><b>01 · Prepare</b><span class="muted fine">Download the matching TvCord API library, then import it from your bot file.</span></div><div class="step"><b>02 · Register</b><span class="muted fine">The portal registers your bot entry file. The downloaded TvCord API checks the token when the bot runs in your terminal.</span></div><div class="step"><b>03 · Host elsewhere</b><span class="muted fine">Keep the secret in your host's environment variables. Never publish it.</span></div></div></section>
-<section id="create" class="panel"><h2>Create a bot</h2><p class="muted">The portal registers bot details and issues a secret token. It does not execute or host uploaded code.</p><div id="loginNotice" class="status">Checking your TvCord login…</div><form id="botForm"><div class="grid"><label class="field"><span>Bot name</span><input id="botName" maxlength="50" required placeholder="My helpful bot"></label><label class="field"><span>Language</span><select id="language"><option value="JavaScript">JavaScript (.js)</option><option value="Python">Python (.py)</option><option value="Ruby">Ruby (.rb)</option><option value="Lua">Lua (.lua)</option></select></label></div><label class="field"><span>Bot entry file</span><input id="sourceFile" type="file" accept=".js,.py,.rb,.lua" required><small class="muted">Use bot.js, bot.py, bot.rb, or bot.lua. Download the matching TvCord API library below.</small></label><div id="fileStatus" class="status">Choose a file to validate it.</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><button class="btn" id="createBtn" type="submit" disabled>Register bot</button><button class="btn secondary" type="button" id="starterBtn">Download bot starter</button><button class="btn secondary" type="button" id="apiBtn">Download TvCord API</button></div></form><div id="newToken" class="hidden" style="margin-top:18px"><h2>Save your bot token now</h2><p class="muted">This secret is shown only once. Copy it into your hosting provider's secret/environment settings. It cannot be retrieved later.</p><div class="token" id="tokenText"></div><p><button class="btn" id="copyToken" type="button">Copy token</button> <button class="btn secondary" id="dismissToken" type="button">I've saved it</button></p></div></section>
+<section id="create" class="panel"><h2>Create a bot</h2><p class="muted">The portal registers bot details and issues a secret token. It does not execute or host uploaded code.</p><div id="loginNotice" class="status">Checking your TvCord login…</div><form id="botForm"><div class="grid"><label class="field"><span>Bot name</span><input id="botName" maxlength="50" required placeholder="My helpful bot"></label><label class="field"><span>Language</span><select id="language"><option value="JavaScript">JavaScript (.js)</option><option value="Python">Python (.py)</option><option value="Ruby">Ruby (.rb)</option><option value="Lua">Lua (.lua)</option></select></label></div><p class="muted">No bot source upload or portal-side file validation is required. Download the real TvCord API module, import it in your own bot program, then register a token for that bot.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px"><button class="btn" id="createBtn" type="submit">Register bot</button><button class="btn secondary" type="button" id="apiBtn">Download TvCord API</button></div></form><div id="newToken" class="hidden" style="margin-top:18px"><h2>Save your bot token now</h2><p class="muted">This secret is shown only once. Copy it into your hosting provider's secret/environment settings. It cannot be retrieved later.</p><div class="token" id="tokenText"></div><p><button class="btn" id="copyToken" type="button">Copy token</button> <button class="btn secondary" id="dismissToken" type="button">I've saved it</button></p></div></section>
 <section id="mybots" class="panel"><h2>Your bots</h2><p class="muted">Tokens are never displayed again after creation. Rotate a lost or exposed token to invalidate the old one.</p><div id="botList" class="muted">Log in to view registered bots.</div></section>
-<section id="requirements" class="panel"><h2>Bot file requirements</h2><ul><li>Your bot entry file must be named <code>bot.js</code>, <code>bot.py</code>, <code>bot.rb</code>, or <code>bot.lua</code>. The portal does not inspect bot logic; the downloaded TvCord API validates its token when run.</li><li>Download the matching <code>TvCord.*</code> API library from this portal and import it in your bot file. Keep both files in the same folder.</li><li>The selected language must match the file extension.</li><li>Keep the bot token private and use a secret/environment variable on your host.</li><li>Do not upload passwords, API keys, or other secrets inside the source file.</li></ul><div class="status">The TvCord API files connect your bot to the TvCord gateway. The gateway must be deployed in Supabase and the bot SQL migrations must be installed before live bot features work.</div></section>
-<p class="muted fine">By registering a bot, you agree to follow the <a href="../tos.html">Terms of Service</a> and <a href="../pap.html">Privacy Policy</a>. Bot source is read only to validate its filename, language marker, and size; the source is not stored by the portal.</p>
+<section id="requirements" class="panel"><h2>Bot file requirements</h2><ul><li>The portal does not upload, inspect, or validate your bot program. Registering only creates a bot record and token.</li><li>Download the matching <code>TvCord.*</code> API library from this portal and import it in your bot file. Keep both files in the same folder.</li><li>Download the actual <code>TvCord.js</code>, <code>TvCord.py</code>, <code>TvCord.rb</code>, or <code>TvCord.lua</code> module, then import it in your bot code.</li><li>Keep the bot token private and use a secret/environment variable on your host.</li><li>Do not upload passwords, API keys, or other secrets inside the source file.</li></ul><div class="status">The TvCord API files connect your bot to the TvCord gateway. The gateway must be deployed in Supabase and the bot SQL migrations must be installed before live bot features work.</div></section>
+<p class="muted fine">By registering a bot, you agree to follow the <a href="../tos.html">Terms of Service</a> and <a href="../pap.html">Privacy Policy</a>. The portal does not accept or validate bot source files.</p>
 </main></div>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -17,49 +17,20 @@ const SUPABASE_KEY='sb_publishable_yNjPLvPUWN05nLFUhMTIkA_uwnkxoGH';
 const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 const extensions={'JavaScript':'js','Python':'py','Ruby':'rb','Lua':'lua'};
-let session=null,validFile=null,lastToken='';
+let session=null,lastToken='';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function setStatus(message,ok=false){$('fileStatus').textContent=message;$('fileStatus').style.borderColor=ok?'#3ba55d':'#3f4147';}
-function checkFile(){
- const file=$('sourceFile').files?.[0],lang=$('language').value;
- validFile=null;$('createBtn').disabled=true;
- if(!file){setStatus('Choose a file to validate it.');return}
- const expected='bot.'+extensions[lang];
- if(file.name!==expected){setStatus('Wrong file name for '+lang+'. Select '+expected+' exactly.');return}
- if(file.size>1000000){setStatus('File is over the 1 MB limit.');return}
- const reader=new FileReader();
- reader.onload=()=>{
-  if($('sourceFile').files?.[0]!==file)return;
-  const source=String(reader.result||'');
-  const validImport = lang==='JavaScript' ? /from\s+[\"']\.\/TvCord\.js[\"']|require\([\"']\.\/TvCord\.js[\"']\)/.test(source) : lang==='Python' ? /from\s+TvCord\s+import|import\s+TvCord/.test(source) : lang==='Ruby' ? /require_relative\s+[\"']TvCord[\"']|require\s+[\"']\.\/TvCord[\"']/.test(source) : /require\s*\(?\s*[\"'](?:\.\/)?TvCord(?:\.lua)?[\"']/.test(source);\n  // Import/runtime validation is performed by the TvCord API when the bot is run.
-  validFile={file,source,language:lang,filename:file.name};
-  setStatus('✓ Valid '+lang+' source · '+file.name+' · '+file.size.toLocaleString()+' bytes',true);
-  $('createBtn').disabled=!session;
- };
- reader.onerror=()=>setStatus('Could not read that file.');
- reader.readAsText(file);
-}
-$('sourceFile').addEventListener('change',checkFile);$('language').addEventListener('change',checkFile);\n$('apiBtn').addEventListener('click',()=>{const lang=$('language').value;const paths={JavaScript:'../sdk/TvCord.js',Python:'../sdk/TvCord.py',Ruby:'../sdk/TvCord.rb',Lua:'../sdk/TvCord.lua'};fetch(paths[lang]).then(r=>{if(!r.ok)throw new Error('API file unavailable');return r.blob()}).then(blob=>{const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='TvCord.'+extensions[lang];a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}).catch(e=>alert('Could not download the API file: '+e.message));});
-$('starterBtn').addEventListener('click',()=>{
- const lang=$('language').value;let source='';
- if(lang==='JavaScript')source='// Import the TvCord API file (TvCord.js) from this portal.\\nimport { Bot } from "./TvCord.js";\\nconst bot = new Bot(process.env.TVCORD_BOT_TOKEN);\\nbot.command("ping", msg => msg.reply("Pong!"));\\nawait bot.start();\\n';
- if(lang==='Python')source='# Import the TvCord API file (TvCord.py) from this portal.\\nimport os\\nfrom TvCord import Bot\\nbot = Bot(os.environ.get("TVCORD_BOT_TOKEN"))\\nbot.command("ping", lambda msg: msg.reply("Pong!"))\\nbot.start()\\n';
- if(lang==='Ruby')source='# Import the TvCord API file (TvCord.rb) from this portal.\\nrequire_relative "TvCord"\\nbot = TvCord::Bot.new(ENV["TVCORD_BOT_TOKEN"])\\nbot.command("ping") { |msg| msg.reply("Pong!") }\\nbot.start\\n';
- if(lang==='Lua')source='-- Import the TvCord API file (TvCord.lua) from this portal.\\nlocal TvCord = require("TvCord")\\nlocal bot = TvCord.Bot.new(os.getenv("TVCORD_BOT_TOKEN"))\\nbot:command("ping", function(msg) msg:reply("Pong!") end)\\nbot:start()\\n';
- const blob=new Blob([source],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');
- a.href=URL.createObjectURL(blob);a.download='bot.'+extensions[lang];a.click();URL.revokeObjectURL(a.href);
-});
+$('apiBtn').addEventListener('click',()=>{const lang=$('language').value;const paths={JavaScript:'../sdk/TvCord.js',Python:'../sdk/TvCord.py',Ruby:'../sdk/TvCord.rb',Lua:'../sdk/TvCord.lua'};fetch(paths[lang]).then(r=>{if(!r.ok)throw new Error('API file unavailable');return r.blob()}).then(blob=>{const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='TvCord.'+extensions[lang];a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}).catch(e=>alert('Could not download the API file: '+e.message));});
 $('botForm').addEventListener('submit',async e=>{
- e.preventDefault();if(!session)return alert('Log in to TvCord first.');if(!validFile)return alert('Choose a valid TvCord source file first.');
+ e.preventDefault();if(!session)return alert('Log in to TvCord first.');
  $('createBtn').disabled=true;$('createBtn').textContent='Registering…';
  try{
-  const {data,error}=await sb.rpc('create_tvcord_bot',{p_name:$('botName').value.trim(),p_language:validFile.language,p_filename:validFile.filename,p_source:validFile.source});
+  const lang=$('language').value;const filename='bot.'+extensions[lang];const {data,error}=await sb.rpc('create_tvcord_bot',{p_name:$('botName').value.trim(),p_language:lang,p_filename:filename,p_source:''});
   if(error)throw error;
   lastToken=data.token;$('tokenText').textContent=lastToken;$('newToken').classList.remove('hidden');
-  $('botName').value='';$('sourceFile').value='';validFile=null;setStatus('Bot registered successfully.',true);
+  $('botName').value='';
   await loadBots();
  }catch(err){alert(err.message||'Could not register bot. Run the bot SQL migration first.');}
- finally{$('createBtn').textContent='Register bot';$('createBtn').disabled=!session||!validFile;}
+ finally{$('createBtn').textContent='Register bot';$('createBtn').disabled=!session;}
 });
 $('copyToken').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(lastToken);$('copyToken').textContent='Copied!'}catch{alert('Select and copy the token manually.')}});
 $('dismissToken').addEventListener('click',()=>{lastToken='';$('tokenText').textContent='';$('newToken').classList.add('hidden')});
@@ -85,7 +56,7 @@ async function loadBots(){
 async function refreshSession(){
  const {data}=await sb.auth.getSession();session=data.session;
  $('loginNotice').innerHTML=session?'<span class="pill"><span class="dot"></span> Signed in as '+esc(session.user.email||session.user.id)+'</span>':'You are not logged in. <a href="../">Open TvCord and log in</a>, then return here.';
- $('createBtn').disabled=!session||!validFile;
+ $('createBtn').disabled=!session;
  await loadBots();
 }
 $('refreshBtn').addEventListener('click',refreshSession);
