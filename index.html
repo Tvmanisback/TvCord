@@ -34,7 +34,7 @@ try {
 const SUPABASE_URL='https://dbiinubzfmsqlzngrjoc.supabase.co';
 const SUPABASE_KEY='sb_publishable_yNjPLvPUWN05nLFUhMTIkA_uwnkxoGH';
 const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
-const $=id=>document.getElementById(id); let session=null, profile=null, servers=[], server=null, channels=[], channel=null, messages=[], members=[], friends=[], mode='login', view='chat', realtime=null, voiceChannel=null, voiceRoom=null, voicePeers=new Map(), voiceMembers=[], voiceMuted=false, voiceScreenStream=null;
+const $=id=>document.getElementById(id); let session=null, profile=null, servers=[], server=null, channels=[], channel=null, messages=[], members=[], friends=[], mode='login', view='chat', realtime=null, voiceChannel=null, voiceRoom=null, voicePeers=new Map(), voiceMembers=[], voiceMuted=false, voiceScreenStream=null, voiceJoining=false;
 const initials=n=>(n||'?').slice(0,2).toUpperCase();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notify(s){$('notice').textContent=s;$('notice').classList.remove('hidden');setTimeout(()=>$('notice').classList.add('hidden'),4000)}
@@ -93,14 +93,16 @@ window.tvCreateChannel=()=>server?modal('Create a text channel','<form id="chann
 window.tvCreateVoiceChannel=()=>server?modal('Create a voice channel','<form id="voiceChannelForm"><label class="field">Channel name<input name="name" maxlength="60" required></label><button class="primary full">Create voice channel</button></form>'):notify('Choose a server first.');
 window.tvJoinVoice=async id=>{
  const vc=channels.find(c=>c.id===id&&c.type==='voice');if(!vc)return;
+ if(voiceJoining)return;
  if(voiceChannel?.id===vc.id){render();return}
+ voiceJoining=true;
  try{
   if(voiceRoom){try{await sb.removeChannel(voiceRoom)}catch{}voiceRoom=null}
   for(const pc of voicePeers.values())pc.close();voicePeers.clear();
   if(window.tvVoiceStream){window.tvVoiceStream.getTracks().forEach(t=>t.stop());window.tvVoiceStream=null}
   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
   voiceChannel=vc;voiceMuted=false;voiceMembers=[];window.tvVoiceStream=stream;
-  const room=sb.channel('voice-'+vc.id,{config:{broadcast:{self:false},presence:{key:session.user.id}}});voiceRoom=room;
+  const room=sb.channel('voice-'+vc.id+'-'+crypto.randomUUID(),{config:{broadcast:{self:false},presence:{key:session.user.id}}});voiceRoom=room;
   const sendSignal=payload=>room.send({type:'broadcast',event:'signal',payload});
   const makePeer=async peerId=>{
    if(voicePeers.has(peerId))return voicePeers.get(peerId);
@@ -121,6 +123,7 @@ window.tvJoinVoice=async id=>{
   room.on('presence',{event:'leave'},()=>{});
   room.subscribe(async status=>{
    if(status==='SUBSCRIBED'){
+    voiceJoining=false;
     try{await room.track({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:false,live:false,joined_at:new Date().toISOString()});voiceMembers=[{id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:false,live:false}];render();notify('Joined voice: '+vc.name)}
     catch(e){notify('Joined voice, but presence could not start: '+(e.message||'unknown error'))}
    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){notify('Voice connection failed ('+status+'). Leave voice and try again.')}
@@ -130,7 +133,7 @@ window.tvJoinVoice=async id=>{
    for(const pc of voicePeers.values())pc.close();voicePeers.clear();
    document.querySelectorAll('audio[id^="voice-audio-"]').forEach(a=>{a.pause();a.srcObject=null;a.remove()});
    const old=voiceRoom;voiceRoom=null;if(old){try{await sb.removeChannel(old)}catch{}}
-   stream.getTracks().forEach(t=>t.stop());window.tvVoiceStream=null;voiceChannel=null;voiceMembers=[];voiceMuted=false;render();notify('Left voice channel');
+   stream.getTracks().forEach(t=>t.stop());window.tvVoiceStream=null;voiceChannel=null;voiceMembers=[];voiceMuted=false;voiceJoining=false;render();notify('Left voice channel');
   };
   window.tvMuteVoice=async()=>{if(!window.tvVoiceStream)return;voiceMuted=!voiceMuted;window.tvVoiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);try{await voiceRoom?.track({user_id:session.user.id,username:profile.username,avatar_url:profile.avatar_url||null,muted:voiceMuted,live:!!voiceScreenStream,joined_at:new Date().toISOString()})}catch{}voiceMembers=voiceMembers.map(m=>m.id===session.user.id?{...m,muted:voiceMuted}:m);render();notify(voiceMuted?'Microphone muted':'Microphone on')};
   window.tvGoLive=async()=>{
@@ -143,7 +146,7 @@ window.tvJoinVoice=async id=>{
    }catch(e){notify('Screen sharing cancelled or unavailable: '+(e.message||'permission denied'))}
   };
   render();
- }catch(e){if(window.tvVoiceStream){window.tvVoiceStream.getTracks().forEach(t=>t.stop());window.tvVoiceStream=null}voiceChannel=null;voiceMembers=[];notify('Could not access microphone: '+(e.message||'permission denied'));render()}
+ }catch(e){voiceJoining=false;if(window.tvVoiceStream){window.tvVoiceStream.getTracks().forEach(t=>t.stop());window.tvVoiceStream=null}voiceChannel=null;voiceMembers=[];notify('Could not access microphone: '+(e.message||'permission denied'));render()}
 };
 async function handleVoiceSignal(p){
  let pc=voicePeers.get(p.from);
