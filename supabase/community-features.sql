@@ -242,3 +242,16 @@ revoke all on function public.is_tvcord_admin() from public,anon;
 grant execute on function public.is_tvcord_admin() to authenticated;
 revoke all on function public.give_tvboosters(uuid,integer) from public,anon;
 grant execute on function public.give_tvboosters(uuid,integer) to authenticated;
+
+-- Only built-in server owners/admins may create roles or assign them.
+-- A custom role can grant server-settings access, but cannot grant permissions onward.
+drop policy if exists "Managers manage server roles" on public.server_roles;
+create policy "Owners and admins manage server roles" on public.server_roles
+ for all to authenticated
+ using (exists(select 1 from public.server_members sm where sm.server_id=server_roles.server_id and sm.user_id=auth.uid() and sm.role in ('owner','admin')))
+ with check (exists(select 1 from public.server_members sm where sm.server_id=server_roles.server_id and sm.user_id=auth.uid() and sm.role in ('owner','admin')));
+drop policy if exists "Managers manage member roles" on public.member_roles;
+create policy "Owners and admins assign member roles" on public.member_roles
+ for all to authenticated
+ using (exists(select 1 from public.server_members sm where sm.server_id=member_roles.server_id and sm.user_id=auth.uid() and sm.role in ('owner','admin')))
+ with check (exists(select 1 from public.server_members sm where sm.server_id=member_roles.server_id and sm.user_id=auth.uid() and sm.role in ('owner','admin')));
