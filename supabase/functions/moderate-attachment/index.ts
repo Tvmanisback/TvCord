@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     return json(200, { safe: true, scanned: false, scanner: "not applicable to non-image file" });
   }
 
-  if (size > 18 * 1024 * 1024) return json(413, { safe: false, reason: "Images must be 18 MB or smaller for image moderation." });
+  // Images share the same 50 MiB limit as all other attachments.
   const bytes = new Uint8Array(await object.arrayBuffer());
   const starts = (...values: number[]) => values.every((v, i) => bytes[i] === v);
   const ascii = (from: number, count: number) => String.fromCharCode(...bytes.subarray(from, from + count));
