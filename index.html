@@ -12,14 +12,22 @@
 <div id="modalRoot"></div><div id="notice" class="notice hidden"></div>
 <script type="module">
 let createClient;
+const importTimeout = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('CDN import timed out')), ms));
 try {
-  ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+  ({ createClient } = await Promise.race([
+    import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'),
+    importTimeout(7000)
+  ]));
 } catch (primaryImportError) {
+  const status = document.getElementById('configError');
+  if (status) status.textContent = 'Trying backup connection library…';
   try {
-    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
+    ({ createClient } = await Promise.race([
+      import('https://esm.sh/@supabase/supabase-js@2'),
+      importTimeout(7000)
+    ]));
   } catch (fallbackImportError) {
-    const status = document.getElementById('configError');
-    if (status) status.textContent = 'Could not load TvCord connection library. Refresh the page or check whether your network blocks the CDN.';
+    if (status) status.textContent = 'Could not load TvCord connection library. Your network may be blocking the required CDN.';
     throw fallbackImportError;
   }
 }
@@ -81,5 +89,5 @@ window.tvAccept=async id=>{let r=await sb.from('friendships').update({status:'ac
 window.tvReject=async id=>{let r=await sb.from('friendships').delete().eq('id',id).eq('addressee_id',session.user.id);if(r.error)return notify(r.error.message);window.tvRequests()};
 window.tvDM=async other=>{let r=await sb.rpc('get_or_create_dm',{other_user:other});if(r.error)return notify(r.error.message);view='dm';modal('Direct messages','<p class="muted">DM conversation created. DM tables and realtime transport require the TvCord social migration to be run in Supabase.</p><code>'+esc(r.data)+'</code>')};
 window.tvLogout=async()=>{const r=await sb.auth.signOut();if(r.error)return notify(r.error.message);};
-sb.auth.getSession().then(({data})=>{session=data.session;if(session)boot();else $('configError').textContent='Ready to sign in'});
+sb.auth.getSession().then(({data,error})=>{if(error)throw error;session=data.session;if(session)boot();else $('configError').textContent='Ready to sign in'}).catch(error=>{$('configError').textContent='Connection failed: '+(error?.message||'Could not reach Supabase')+'. Refresh and try again.';console.error('TvCord startup failed:',error)});
 </script></body></html>
