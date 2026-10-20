@@ -259,5 +259,20 @@ window.tvReject=async id=>{let r=await sb.from('friendships').delete().eq('id',i
 window.tvDM=async other=>{let r=await sb.rpc('get_or_create_dm',{other_user:other});if(r.error)return notify(r.error.message);view='dm';modal('Direct messages','<p class="muted">DM conversation created. DM tables and realtime transport require the TvCord social migration to be run in Supabase.</p><code>'+esc(r.data)+'</code>')};
 window.tvLogout=async()=>{const r=await sb.auth.signOut();if(r.error)return notify(r.error.message);};
 const startupTimeout = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase did not respond in time. Check the project URL, public key, and Supabase status.')), ms));
-Promise.race([sb.auth.getSession(), startupTimeout(12000)]).then(({data,error})=>{if(error)throw error;session=data.session;if(session){$('configError').textContent='Signing you in…';return boot()}$('configError').textContent='Connected to Supabase. Ready to sign in.'}).catch(error=>{$('configError').textContent='Connection failed: '+(error?.message||'Could not reach Supabase')+'. Check your connection and refresh.';console.error('TvCord startup failed:',error)});
+Promise.race([sb.auth.getSession(), startupTimeout(12000)]).then(async({data,error})=>{
+ if(error)throw error;
+ session=data.session;
+ if(session){$('configError').textContent='Signing you in…';return boot()}
+ $('configError').textContent='Connected to Supabase. Ready to sign in.';
+}).catch(async error=>{
+ console.error('TvCord startup failed:',error);
+ const message=String(error?.message||error||'Could not reach Supabase');
+ if(/Cannot parse given Error object|invalid.*session|malformed.*session/i.test(message)){
+   try{localStorage.removeItem('sb-dbiinubzfmsqlzngrjoc-auth-token')}catch{}
+   session=null;
+   $('configError').textContent='Your saved login session could not be read. Please log in again.';
+ }else{
+   $('configError').textContent='Connection failed: '+message+'. Check your connection and refresh.';
+ }
+});
 </script></body></html>
