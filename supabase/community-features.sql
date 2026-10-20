@@ -246,7 +246,7 @@ grant execute on function public.give_tvboosters(uuid,integer) to service_role;
 -- This grant RPC is backend-only. The admin-ban Edge Function checks TVCORD_ADMIN_USER_IDS first.
 create or replace function public.admin_give_tvboosters(target_user uuid, amount integer)
 returns integer language plpgsql security definer set search_path=public
-as $
+as $$
 declare n integer; home_id uuid; month_date date := date_trunc('month',now())::date;
 begin
  if target_user is null then raise exception 'Recipient is required.'; end if;
@@ -261,7 +261,7 @@ begin
  on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
  returning balance into n;
  return n;
-end $;
+end $$;
 revoke all on function public.admin_give_tvboosters(uuid,integer) from public,anon,authenticated;
 grant execute on function public.admin_give_tvboosters(uuid,integer) to service_role;
 
