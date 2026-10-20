@@ -28,10 +28,13 @@ create table if not exists public.content_reports (
 );
 alter table public.content_reports enable row level security;
 revoke all on public.content_reports from anon, authenticated;
-grant insert on public.content_reports to authenticated;
+grant insert, select on public.content_reports to authenticated;
 drop policy if exists "Users submit reports" on public.content_reports;
 create policy "Users submit reports" on public.content_reports
 for insert to authenticated with check (reporter_id = auth.uid());
+drop policy if exists "Users view their own reports" on public.content_reports;
+create policy "Users view their own reports" on public.content_reports
+for select to authenticated using (reporter_id = auth.uid());
 
 -- Account restrictions are checked on every message insert by a server-side trigger.
 create table if not exists public.user_restrictions (
