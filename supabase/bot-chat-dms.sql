@@ -23,7 +23,7 @@ alter table public.dm_conversations
 alter table public.dm_conversations
   add column if not exists user_high uuid references auth.users(id) on delete cascade;
 
-do $
+do $migration$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -42,7 +42,7 @@ begin
       add constraint dm_conversations_user_pair_order_check
       check (user_low is null or user_high is null or user_low < user_high);
   end if;
-end $;
+end $migration$;
 
 create table if not exists public.dm_messages (
   id uuid primary key default gen_random_uuid(),
