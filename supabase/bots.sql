@@ -68,9 +68,6 @@ begin
     or (p_filename = 'bot.lua' and p_language <> 'Lua') then
     raise exception 'The selected language does not match the bot entry file extension.';
   end if;
-  if position('TvCord' in coalesce(p_source, '')) = 0 then
-    raise exception 'Import the TvCord API library in your bot source.';
-  end if;
   if length(coalesce(p_source, '')) > 1000000 then
     raise exception 'Bot source file is too large (1 MB maximum).';
   end if;
