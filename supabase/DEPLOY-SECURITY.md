@@ -6,7 +6,7 @@ These are the security features implemented in the repository, plus the external
 
 In Supabase Dashboard, open **SQL Editor**, paste and run **supabase/attachments-reports-admin.sql**.
 
-Run it after the main schema and social/friendship schema are installed. The migration sets the attachment bucket's maximum object size to **50 MiB (52,428,800 bytes)** and restricts accepted MIME types. It also adds server-side checks for message sender identity, server membership, account restrictions, and a basic obvious-keyword filter.
+Run the main schema and social/friendship schema first, then run **supabase/launch-safety.sql** if needed, and run **supabase/attachments-reports-admin.sql last**. Do not rerun schema.sql or launch-safety.sql afterward without rerunning the attachment migration, because those older files set smaller upload limits. The migration sets the attachment bucket's maximum object size to **50 MiB (52,428,800 bytes)** and restricts accepted MIME types. It also adds server-side checks for message sender identity, server membership, account restrictions, and a basic obvious-keyword filter.
 
 If your project has not already run **supabase/launch-safety.sql**, run that too. The attachment migration is designed to be rerunnable. Check the SQL Editor result for errors; do not assume a migration applied if it reports a failure.
 
