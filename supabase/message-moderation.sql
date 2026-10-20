@@ -16,7 +16,7 @@ begin
     raise exception 'TvCord moderation: messages are limited to 4,000 characters.';
   end if;
 
-  if body ~ '(.)\\1{17,}' then
+  if body ~ '(.)\1{17,}' then
     raise exception 'TvCord moderation: repeated-character spam was blocked.';
   end if;
 
@@ -24,16 +24,16 @@ begin
     raise exception 'TvCord moderation: a common phishing or fake-reward link was blocked.';
   end if;
 
-  if body ~* '\\m(send|show|share|trade|sell)[[:space:]]+(me[[:space:]]+)?(nudes?|naked pics?|explicit pics?|sexual pics?)\\M' then
+  if body ~* '\m(send|show|share|trade|sell)[[:space:]]+(me[[:space:]]+)?(nudes?|naked pics?|explicit pics?|sexual pics?)\M' then
     raise exception 'TvCord moderation: sexual solicitation was blocked.';
   end if;
 
-  if body ~* '\\m(keep this|our chat)[[:space:]]+(a[[:space:]]+)?secret\\M' and
-     body ~* '\\m(parents|mom|dad|guardian)\\M' then
+  if body ~* '\m(keep this|our chat)[[:space:]]+(a[[:space:]]+)?secret\M' and
+     body ~* '\m(parents|mom|dad|guardian)\M' then
     raise exception 'TvCord moderation: a potentially unsafe secrecy request was blocked.';
   end if;
 
-  if body ~* '\\m(kill yourself|kys)\\M' then
+  if body ~* '\m(kill yourself|kys)\M' then
     raise exception 'TvCord moderation: abusive or harmful language was blocked.';
   end if;
 
