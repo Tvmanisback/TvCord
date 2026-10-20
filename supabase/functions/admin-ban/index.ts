@@ -30,21 +30,27 @@ Deno.serve(async (req) => {
   if (target === user.id) return json(400, { error: "You cannot restrict your own admin account" });
   const db = createClient(url, service);
   if (body.action === "unban") {
+    const { error: authBanError } = await db.auth.admin.updateUserById(target, { ban_duration: "none" });
+    if (authBanError) return json(500, { error: "Could not remove the Supabase Auth ban: " + authBanError.message });
     const { error } = await db.from("user_restrictions").delete().eq("user_id", target);
-    if (error) return json(500, { error: "Could not remove restriction. Run the TvCord safety migration first." });
-    return json(200, { ok: true, message: "Restriction removed if one existed." });
+    if (error) return json(500, { error: "Auth ban removed, but the database restriction could not be removed. Run the TvCord safety migration first." });
+    return json(200, { ok: true, message: "Supabase Auth ban and database restriction removed." });
   }
   if (body.action !== "ban") return json(400, { error: "Action must be check, ban, or unban" });
   const durations: Record<string, number | null> = { "1h": 3600, "24h": 86400, "7d": 604800, "30d": 2592000, permanent: null };
   const duration = body.duration || "permanent";
   if (!(duration in durations)) return json(400, { error: "Invalid duration" });
   const expires = durations[duration] === null ? null : new Date(Date.now() + durations[duration]! * 1000).toISOString();
+  const seconds = durations[duration];
+  const authBanDuration = seconds === null ? "876000h" : seconds + "s";
+  const { error: authBanError } = await db.auth.admin.updateUserById(target, { ban_duration: authBanDuration });
+  if (authBanError) return json(500, { error: "Could not apply Supabase Auth ban: " + authBanError.message });
   const { error } = await db.from("user_restrictions").upsert({
     user_id: target,
     reason: String(body.reason || "Safety policy violation").slice(0, 300),
     expires_at: expires,
     created_by: user.id,
   }, { onConflict: "user_id" });
-  if (error) return json(500, { error: "Could not apply restriction. Run the TvCord safety migration first." });
-  return json(200, { ok: true, message: expires ? "Account restricted until " + expires : "Account permanently restricted." });
+  if (error) return json(500, { error: "Supabase Auth ban applied, but the database restriction failed. Run the TvCord safety migration immediately." });
+  return json(200, { ok: true, message: expires ? "Account banned until " + expires : "Account permanently banned (100-year Auth ban)." });
 });
