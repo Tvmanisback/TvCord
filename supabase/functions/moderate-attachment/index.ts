@@ -33,6 +33,10 @@ Deno.serve(async (req) => {
   if (!allowed.has(mime)) return json(415, { safe: false, reason: "File type is not allowed." });
 
   const db = createClient(url, service);
+  const recordSafe = async (scanner: string) => {
+    const { error } = await db.from("attachment_scan_results").upsert({ object_path: path, user_id: user.id, safe: true, scanner, scanned_at: new Date().toISOString() }, { onConflict: "object_path" });
+    return !error;
+  };
   const { data: object, error: downloadError } = await db.storage.from("attachments").download(path);
   if (downloadError || !object) return json(404, { safe: false, reason: "Uploaded file could not be retrieved for scanning." });
   if (object.size !== size) return json(400, { safe: false, reason: "File size verification failed." });
@@ -59,6 +63,7 @@ Deno.serve(async (req) => {
     if (severe.has(annotations.adult) || severe.has(annotations.racy) || severe.has(annotations.violence)) {
       return json(200, { safe: false, reason: "The image was blocked by automated safety screening." });
     }
+    if (!await recordSafe("Google Cloud Vision SafeSearch")) return json(503, { safe: false, reason: "Safety verdict could not be recorded; upload blocked." });
     return json(200, { safe: true, scanner: "Google Cloud Vision SafeSearch", verdict: annotations });
   }
 
@@ -81,5 +86,6 @@ Deno.serve(async (req) => {
   let scanResult: { clean?: boolean; infected?: boolean };
   try { scanResult = await scanResponse.json(); } catch { return json(503, { safe: false, reason: "File scanner returned an invalid verdict; upload blocked." }); }
   if (scanResult.clean !== true || scanResult.infected === true) return json(200, { safe: false, reason: "File was blocked by malware screening." });
+  if (!await recordSafe("configured malware scanner")) return json(503, { safe: false, reason: "Safety verdict could not be recorded; upload blocked." });
   return json(200, { safe: true, scanner: "configured malware scanner" });
 });
