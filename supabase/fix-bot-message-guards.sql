@@ -13,7 +13,7 @@ declare
   confirmed_at timestamptz;
 begin
   if new.bot_id is not null and new.user_id is null
-     and current_setting('request.jwt.claim.role', true) = 'service_role' then
+     and current_setting('tvcord.bot_sender_id', true) = new.bot_id::text then
     select owner_id into sender
       from public.tvcord_bots
       where id = new.bot_id;
@@ -51,7 +51,7 @@ declare
   sender uuid;
 begin
   if new.bot_id is not null and new.user_id is null
-     and current_setting('request.jwt.claim.role', true) = 'service_role' then
+     and current_setting('tvcord.bot_sender_id', true) = new.bot_id::text then
     select owner_id into sender from public.tvcord_bots where id = new.bot_id;
     if sender is null then raise exception 'Unknown bot sender.'; end if;
   else
@@ -95,7 +95,7 @@ declare
   sender uuid;
 begin
   if new.bot_id is not null and new.user_id is null
-     and current_setting('request.jwt.claim.role', true) = 'service_role' then
+     and current_setting('tvcord.bot_sender_id', true) = new.bot_id::text then
     select owner_id into sender from public.tvcord_bots where id = new.bot_id;
     if sender is null then raise exception 'Unknown bot sender.'; end if;
     if public.tvcord_user_is_restricted(sender) then
@@ -143,3 +143,39 @@ begin
   return new;
 end;
 $$;
+
+
+-- Trusted bot RPC: set a transaction-local marker only after validating the bot
+-- token, then insert. The marker is checked by all message guards above.
+create or replace function public.tvcord_bot_send_channel_message(
+  p_token text, p_channel_id uuid, p_content text
+) returns uuid
+language plpgsql security definer
+set search_path = public, extensions
+as $$
+declare
+  b public.tvcord_bots%rowtype;
+  new_id uuid;
+  clean_content text := trim(coalesce(p_content, ''));
+begin
+  select * into b from public.tvcord_bots
+   where token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
+  if not found then raise exception 'Invalid bot token.'; end if;
+  if length(clean_content) < 1 or length(clean_content) > 4000 then
+    raise exception 'Message must be 1 to 4000 characters.';
+  end if;
+  if not exists (
+    select 1 from public.channels c
+    join public.server_members sm on sm.server_id = c.server_id
+    where c.id = p_channel_id and sm.user_id = b.owner_id
+  ) then raise exception 'The bot owner must be a member of that server.'; end if;
+
+  perform set_config('tvcord.bot_sender_id', b.id::text, true);
+  insert into public.messages(channel_id, user_id, bot_id, content)
+    values (p_channel_id, null, b.id, clean_content) returning id into new_id;
+  return new_id;
+end;
+$$;
+
+revoke all on function public.tvcord_bot_send_channel_message(text,uuid,text) from public, anon, authenticated;
+grant execute on function public.tvcord_bot_send_channel_message(text,uuid,text) to service_role;
