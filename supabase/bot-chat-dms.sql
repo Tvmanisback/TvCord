@@ -15,6 +15,35 @@ create table if not exists public.dm_conversations (
   unique (user_low, user_high)
 );
 
+-- Upgrade older installations where dm_conversations already exists but only
+-- has id/created_at. Keep old rows intact; newly created conversations get both
+-- participant IDs through get_or_create_dm().
+alter table public.dm_conversations
+  add column if not exists user_low uuid references auth.users(id) on delete cascade;
+alter table public.dm_conversations
+  add column if not exists user_high uuid references auth.users(id) on delete cascade;
+
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.dm_conversations'::regclass
+      and conname = 'dm_conversations_user_pair_unique'
+  ) then
+    alter table public.dm_conversations
+      add constraint dm_conversations_user_pair_unique unique (user_low, user_high);
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.dm_conversations'::regclass
+      and conname = 'dm_conversations_user_pair_order_check'
+  ) then
+    alter table public.dm_conversations
+      add constraint dm_conversations_user_pair_order_check
+      check (user_low is null or user_high is null or user_low < user_high);
+  end if;
+end $;
+
 create table if not exists public.dm_messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.dm_conversations(id) on delete cascade,
