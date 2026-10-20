@@ -3,17 +3,35 @@
 -- This configures a 50 MiB upload cap. It does NOT perform malware or sexual-image scanning.
 create extension if not exists pgcrypto;
 
--- Keep the current bucket behavior compatible with the existing public-URL client.
--- Public attachments can be viewed by anyone who has the URL; do not upload sensitive files.
+-- Keep attachments private. Only the authenticated Edge Functions can read them and mint short-lived signed URLs after membership checks.
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
 values (
-  'attachments', 'attachments', true, 52428800,
+  'attachments', 'attachments', false, 52428800,
   array['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','application/zip','application/x-zip-compressed']
 )
 on conflict (id) do update
-set public = true,
+set public = false,
     file_size_limit = 52428800,
     allowed_mime_types = excluded.allowed_mime_types;
+
+-- A file cannot be attached to a message until the trusted scanner records a clean verdict.
+create table if not exists public.attachment_scan_results (
+  object_path text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  safe boolean not null default false,
+  scanner text not null,
+  scanned_at timestamptz not null default now()
+);
+alter table public.attachment_scan_results enable row level security;
+revoke all on public.attachment_scan_results from anon, authenticated;
+
+-- Stop the old public media policy from making private attachments readable.
+drop policy if exists "Public can view TvCord media" on storage.objects;
+drop policy if exists "Authenticated users view own TvCord attachments" on storage.objects;
+create policy "Authenticated users view own TvCord attachments" on storage.objects
+for select to authenticated using (
+  bucket_id = 'avatars' or (bucket_id = 'attachments' and (storage.foldername(name))[1] = auth.uid()::text)
+);
 
 -- The client cannot directly read reports. Supabase Edge Function service role handles webhook forwarding.
 create table if not exists public.content_reports (
@@ -71,6 +89,19 @@ begin
   select server_id into channel_server from public.channels where id = new.channel_id;
   if channel_server is null or not public.is_server_member(channel_server) then
     raise exception 'You must be a member of this server to send messages.';
+  end if;
+  if new.attachment_url is not null then
+    if new.attachment_url like 'http://%' or new.attachment_url like 'https://%' then
+      raise exception 'Attachments must use a private scanned storage path.';
+    end if;
+    if not exists (
+      select 1 from public.attachment_scan_results sr
+      where sr.object_path = new.attachment_url
+        and sr.user_id = auth.uid()
+        and sr.safe = true
+    ) then
+      raise exception 'Attachment has not passed server-side safety scanning.';
+    end if;
   end if;
   body := lower(coalesce(new.content, ''));
   if body ~ '(^|[^a-z])(porn|pornography|hentai|xxx|onlyfans|send nudes|nude pics|sexual services)([^a-z]|$)' then
