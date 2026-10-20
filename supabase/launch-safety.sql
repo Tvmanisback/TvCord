@@ -49,8 +49,7 @@ revoke all on function public.tvcord_user_is_restricted(uuid) from public, anon,
 create or replace function public.tvcord_safety_message_guard()
 returns trigger language plpgsql security definer set search_path=public
 as $$
-declare t text; recent timestamptz[]; now_at timestamptz := clock_timestamp();
-declare channel_server uuid;
+declare t text; recent timestamptz[]; now_at timestamptz := clock_timestamp(); channel_server uuid;
 begin
  if auth.uid() is null or new.user_id <> auth.uid() then
    raise exception 'Messages must be sent by the signed-in account.';
