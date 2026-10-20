@@ -38,11 +38,11 @@ begin
     raise exception 'Too many links in one message.';
   end if;
 
-  insert into public.message_rate_limits(user_id, recent_times)
+  insert into public.message_rate_limits as mr(user_id, recent_times)
   values (new.user_id, array[now_at])
   on conflict (user_id) do update
     set recent_times = array_append(
-      array(select t from unnest(public.message_rate_limits.recent_times) t
+      array(select t from unnest(mr.recent_times) t
             where t > now_at - interval '10 seconds'),
       now_at
     )
