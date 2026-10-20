@@ -39,7 +39,7 @@ function checkFile(){
  reader.onerror=()=>setStatus('Could not read that file.');
  reader.readAsText(file);
 }
-$('sourceFile').addEventListener('change',checkFile);$('language').addEventListener('change',checkFile);\n$('apiBtn').addEventListener('click',()=>{const lang=$('language').value;const paths={JavaScript:'../sdk/TvCord.js',Python:'../sdk/TvCord.py',Ruby:'../sdk/TvCord.rb',Lua:'../sdk/TvCord.lua'};window.location.href=paths[lang];});
+$('sourceFile').addEventListener('change',checkFile);$('language').addEventListener('change',checkFile);\n$('apiBtn').addEventListener('click',()=>{const lang=$('language').value;const paths={JavaScript:'../sdk/TvCord.js',Python:'../sdk/TvCord.py',Ruby:'../sdk/TvCord.rb',Lua:'../sdk/TvCord.lua'};fetch(paths[lang]).then(r=>{if(!r.ok)throw new Error('API file unavailable');return r.blob()}).then(blob=>{const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='TvCord.'+extensions[lang];a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}).catch(e=>alert('Could not download the API file: '+e.message));});
 $('starterBtn').addEventListener('click',()=>{
  const lang=$('language').value;let source='';
  if(lang==='JavaScript')source='// Import the TvCord API file (TvCord.js) from this portal.\\nimport { Bot } from "./TvCord.js";\\nconst bot = new Bot(process.env.TVCORD_BOT_TOKEN);\\nbot.command("ping", msg => msg.reply("Pong!"));\\nawait bot.start();\\n';
