@@ -20,6 +20,25 @@ begin
     raise exception 'TvCord moderation: repeated-character spam was blocked.';
   end if;
 
+
+  -- Hate/slur filter. This is intentionally a maintained starter list, not an exhaustive lexicon.
+  -- Match common spelling variants and punctuation/spacing substitutions.
+  if body ~* '(^|[^[:alnum:]])(n[i1!|]gg(e|a|u)?r?s?|n[i1!|]gg(a|e)?)([^[:alnum:]]|$)' then
+    raise exception 'TvCord moderation: hateful slurs are not allowed.';
+  end if;
+
+  if body ~* '(^|[^[:alnum:]])(f[a@]g(g[o0]t?|s)?|dyke|tr[a@]nn(y|ie)?)([^[:alnum:]]|$)' then
+    raise exception 'TvCord moderation: hateful slurs are not allowed.';
+  end if;
+
+  if body ~* '(^|[^[:alnum:]])(k[i1!|]ke|ch[i1!|]nk|g[o0]ok|sp[i1!|]c|wetb[a@]ck)([^[:alnum:]]|$)' then
+    raise exception 'TvCord moderation: hateful slurs are not allowed.';
+  end if;
+
+  if body ~* '(^|[^[:alnum:]])(r[e3]t[a@]rd(ed)?|[uυ]ntouchable)([^[:alnum:]]|$)' then
+    raise exception 'TvCord moderation: hateful or demeaning slurs are not allowed.';
+  end if;
+
   if body ~* '(discord[.]gift|nitro-free[.]|steamcommunit(y|у)[.]|free-nitro[.])' then
     raise exception 'TvCord moderation: a common phishing or fake-reward link was blocked.';
   end if;
