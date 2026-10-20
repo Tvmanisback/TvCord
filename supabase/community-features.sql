@@ -120,9 +120,9 @@ as $tvcord$
  select s.id,s.name,s.description,s.icon_url,s.banner_url,s.level,s.total_boosters,
         count(sm.user_id) as member_count,s.invite_code
  from public.servers s left join public.server_members sm on sm.server_id=s.id
- where s.discoverable=true and s.level>=10
+ where lower(s.name)='tvcord' or (s.discoverable=true and s.level>=10)
  group by s.id
- having count(sm.user_id)>=15
+ having lower(s.name)='tvcord' or count(sm.user_id)>=15
  order by s.level desc,count(sm.user_id) desc,s.name;
 $tvcord$;
 
@@ -132,6 +132,10 @@ as $tvcord$
 declare n bigint; lvl integer;
 begin
  if not public.can_manage_server(target_server) then raise exception 'Only server owners and admins can change discovery.'; end if;
+ if exists(select 1 from public.servers where id=target_server and lower(name)='tvcord') then
+   update public.servers set discoverable=true where id=target_server;
+   return true;
+ end if;
  select count(*) into n from public.server_members where server_id=target_server;
  select level into lvl from public.servers where id=target_server;
  if enabled and (n<15 or lvl<10) then raise exception 'Discovery requires at least 15 members and server level 10.'; end if;
@@ -156,9 +160,9 @@ begin
  perform pg_advisory_xact_lock(hashtext('tvcord-single-home-server'));
  select * into home from public.servers where lower(name)='tvcord' order by created_at asc limit 1 for update;
  if home.id is null then
-  insert into public.servers(name,owner_id,description) values('TvCord',admin_id,'The official TvCord community server') returning * into home;
+  insert into public.servers(name,owner_id,description,discoverable) values('TvCord',admin_id,'The official TvCord community server',true) returning * into home;
  else
-  update public.servers set owner_id=admin_id where id=home.id and owner_id<>admin_id returning * into home;
+  update public.servers set owner_id=admin_id, discoverable=true where id=home.id and (owner_id<>admin_id or discoverable=false) returning * into home;
   if home.id is null then select * into home from public.servers where lower(name)='tvcord' order by created_at asc limit 1; end if;
  end if;
  insert into public.server_members(server_id,user_id,role) values(home.id,admin_id,'owner')
