@@ -40,38 +40,10 @@ Deno.serve(async (req) => {
   if (downloadError || !object) return json(404, { safe: false, reason: "Uploaded file could not be retrieved for scanning." });
   if (object.size !== size) return json(400, { safe: false, reason: "File size verification failed." });
 
-  if (mime.startsWith("image/")) {
-    const key = Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY");
-    if (!key) return json(503, { safe: false, reason: "Image safety scanner is not configured; image upload blocked." });
-    // Vision's image-content request is limited; fail closed instead of skipping checks.
-    if (size > 18 * 1024 * 1024) return json(413, { safe: false, reason: "Images larger than 18 MB cannot be safely scanned by this configured scanner. Use a smaller image." });
-    const bytes = new Uint8Array(await object.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    const content = btoa(binary);
-    const response = await fetch("https://vision.googleapis.com/v1/images:annotate?key=" + encodeURIComponent(key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requests: [{ image: { content }, features: [{ type: "SAFE_SEARCH_DETECTION" }, { type: "IMAGE_PROPERTIES" }] }] }),
-    });
-    if (!response.ok) return json(503, { safe: false, reason: "Image scanner unavailable; upload blocked." });
-    const result = await response.json();
-    const annotations = result?.responses?.[0]?.safeSearchAnnotation;
-    if (!annotations) return json(503, { safe: false, reason: "Image scanner returned no safety verdict; upload blocked." });
-    const severe = new Set(["LIKELY", "VERY_LIKELY"]);
-    if (severe.has(annotations.adult) || severe.has(annotations.racy) || severe.has(annotations.violence)) {
-      return json(200, { safe: false, reason: "The image was blocked by automated safety screening." });
-    }
-    if (!await recordSafe("Google Cloud Vision SafeSearch")) return json(503, { safe: false, reason: "Safety verdict could not be recorded; upload blocked." });
-    return json(200, { safe: true, scanner: "Google Cloud Vision SafeSearch", verdict: annotations });
-  }
-
-  // Non-image files (PDFs, ZIPs, Office documents, text files, and other types)
-  // are accepted without a malware scanner, as requested. This verdict means
-  // "accepted but NOT scanned"; it is not a claim that the file is malware-free.
-  // Keep the bucket private and deliver attachments as downloads where possible.
+  // TvCord accepts all file types without an external malware scanner, as requested.
+  // This is an acceptance verdict only; it does NOT mean the file is safe.
   if (!await recordSafe("unscanned user upload")) {
     return json(503, { safe: false, reason: "Upload verdict could not be recorded; upload blocked." });
   }
-  return json(200, { safe: true, scanned: false, warning: "This file was not malware-scanned." });
+  return json(200, { safe: true, scanned: false, warning: "This attachment was not malware-scanned." });
 });
