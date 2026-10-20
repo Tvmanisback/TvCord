@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return json(401, { error: "Invalid session." });
 
-  const adminId = admins[0];
+  const adminId = admins[0].toLowerCase();
   const db = createClient(url, service);
   const { data: adminUser, error: adminLookupError } = await db.auth.admin.getUserById(adminId);
   if (adminLookupError || !adminUser?.user) return json(503, { error: "The first ID in TVCORD_ADMIN_USER_IDS must be a valid Supabase Auth user UUID." });
