@@ -32,6 +32,13 @@ create policy "Authenticated users view own TvCord attachments" on storage.objec
 for select to authenticated using (
   bucket_id = 'avatars' or (bucket_id = 'attachments' and (storage.foldername(name))[1] = auth.uid()::text)
 );
+drop policy if exists "Users update their own TvCord media" on storage.objects;
+create policy "Users update their own TvCord avatars" on storage.objects
+for update to authenticated using (
+  bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+) with check (
+  bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
+);
 
 -- The client cannot directly read reports. Supabase Edge Function service role handles webhook forwarding.
 create table if not exists public.content_reports (
