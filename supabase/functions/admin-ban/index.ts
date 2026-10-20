@@ -14,14 +14,14 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const admins = (Deno.env.get("TVCORD_ADMIN_USER_IDS") || "").split(",").map(x => x.trim()).filter(Boolean);
+  const admins = (Deno.env.get("TVCORD_ADMIN_USER_IDS") || "").split(/[\\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
   if (!url || !anon || !service || admins.length === 0) return json(503, { error: "Admin backend is not configured. Set TVCORD_ADMIN_USER_IDS and Supabase function secrets." });
   const auth = req.headers.get("Authorization");
   if (!auth) return json(401, { error: "Sign in required" });
   const userClient = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) return json(401, { error: "Invalid session" });
-  if (!admins.includes(user.id)) return json(403, { error: "Admin access denied" });
+  if (!admins.includes(user.id.toLowerCase())) return json(403, { error: "Admin access denied: the signed-in user UUID is not in TVCORD_ADMIN_USER_IDS. Update the secret with the exact Supabase Auth user UUID, then redeploy this function." });
   let body: { action?: string; user_id?: string; reason?: string; duration?: string };
   try { body = await req.json(); } catch { return json(400, { error: "Invalid JSON" }); }
   if (body.action === "check") return json(200, { is_admin: true });
