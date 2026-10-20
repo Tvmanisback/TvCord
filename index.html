@@ -50,7 +50,39 @@ $('authSwitch').onclick=()=>{mode=mode==='login'?'signup':'login';$('authSubmit'
 $('authForm').onsubmit=async e=>{e.preventDefault();$('authSubmit').disabled=true;let r=mode==='signup'?await sb.auth.signUp({email:$('email').value,password:$('password').value,options:{data:{username:$('username').value.trim()||$('email').value.split('@')[0]}}}):await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('authSubmit').disabled=false;if(r.error)return notify(r.error.message);if(mode==='signup'&&!r.data.session)return notify('Account created. Check your email to confirm, then log in.');session=r.data.session;await boot()};
 sb.auth.onAuthStateChange((event,s)=>{session=s;if(event==='SIGNED_OUT'){profile=null;servers=[];server=null;channels=[];channel=null;messages=[];friends=[];if(realtime){sb.removeChannel(realtime);realtime=null}showAuth();}});
 const tvWithTimeout=(promise,ms,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out after '+Math.round(ms/1000)+' seconds.')),ms))]);
-async function boot(){if(!session)return;const status=$('configError');const setStatus=s=>{if(status&&status.isConnected)status.textContent=s};try{setStatus('Loading your profile…');applySavedTheme();const u=session.user;let q=await tvWithTimeout(sb.from('profiles').select('*').eq('id',u.id).maybeSingle(),10000,'Loading profile');if(q.error)throw new Error('Profile query failed: '+q.error.message);if(!q.data){let p={id:u.id,username:u.user_metadata?.username||u.email.split('@')[0],accent_color:'#e34b64',status_text:''};q=await tvWithTimeout(sb.from('profiles').upsert(p).select().single(),10000,'Creating profile');if(q.error)throw new Error('Could not create profile: '+q.error.message)}profile=q.data;if(!profile)throw new Error('Supabase returned no profile. Check the profiles table and its RLS policies.');let home=null;setStatus('Loading your TvCord server…');try{const result=await tvWithTimeout(sb.functions.invoke('ensure-default-server',{body:{}}),10000,'Home server setup');if(!result.error&&result.data?.ok){home=result.data;adminUserId=result.data.admin_user_id||null}else console.warn('TvCord home server setup is not available:',result.data?.error||result.error?.message)}catch(e){console.warn('TvCord home server setup is not available:',e)}setStatus('Loading servers and channels…');await tvWithTimeout(loadServers(),12000,'Loading servers/channels');if(home?.server_id){const hs=servers.find(x=>x.id===home.server_id);if(hs&&server?.id!==hs.id){server=hs;await tvWithTimeout(loadChannels(),10000,'Loading home server channels')}}render()}catch(e){console.error('TvCord sign-in startup failed:',e);setStatus('Could not finish signing in: '+(e?.message||'Unknown startup error')+' Refresh and try again.');notify(e?.message||'Could not finish signing in.')}}
+let tvBootPromise=null;
+async function boot(){
+ if(!session)return;
+ if(tvBootPromise)return tvBootPromise;
+ const u=session.user;
+ applySavedTheme();
+ // Show the app immediately from the signed-in session; hydrate database data in the background.
+ if(!profile)profile={id:u.id,username:u.user_metadata?.username||u.email?.split('@')[0]||'You',accent_color:'#e34b64',status_text:'Loading…'};
+ render();
+ tvBootPromise=(async()=>{
+  try{
+   const q=await tvWithTimeout(sb.from('profiles').select('*').eq('id',u.id).maybeSingle(),10000,'Loading profile');
+   if(q.error)throw new Error('Profile query failed: '+q.error.message);
+   if(q.data)profile=q.data;
+   else{
+    const p={id:u.id,username:u.user_metadata?.username||u.email?.split('@')[0]||'User',accent_color:'#e34b64',status_text:''};
+    const made=await tvWithTimeout(sb.from('profiles').upsert(p).select().single(),10000,'Creating profile');
+    if(made.error)throw new Error('Could not create profile: '+made.error.message);
+    profile=made.data;
+   }
+   render();
+  }catch(e){console.error('TvCord profile startup failed:',e);notify('Profile sync failed: '+(e?.message||'Unknown error'))}
+  // Neither default-server setup nor loading chat history should block the initial app view.
+  try{
+   const result=await tvWithTimeout(sb.functions.invoke('ensure-default-server',{body:{}}),10000,'Home server setup');
+   if(!result.error&&result.data?.ok){adminUserId=result.data.admin_user_id||null}
+   else console.warn('TvCord home server setup is not available:',result.data?.error||result.error?.message);
+  }catch(e){console.warn('TvCord home server setup is not available:',e)}
+  try{await tvWithTimeout(loadServers(),12000,'Loading servers/channels');render()}
+  catch(e){console.error('TvCord server loading failed:',e);notify('Signed in, but servers did not load: '+(e?.message||'Unknown error'))}
+ })().finally(()=>{tvBootPromise=null});
+ return tvBootPromise;
+}
 async function loadServers(){let r=await sb.from('server_members').select('server_id,role,servers(id,name,owner_id,invite_code)').eq('user_id',session.user.id);if(r.error){notify(r.error.message);return}servers=(r.data||[]).map(x=>({...x.servers,role:x.role})).filter(Boolean);if(!server||!servers.some(s=>s.id===server.id))server=servers[0]||null;await loadChannels()}
 async function loadChannels(){channels=[];channel=null;members=[];if(!server)return;let c=await sb.from('channels').select('*').eq('server_id',server.id).order('position');channels=c.data||[];channel=channels.find(c=>c.type==='text')||channels[0]||null;let m=await sb.from('server_members').select('role,profiles(id,username,avatar_url,status_text,accent_color)').eq('server_id',server.id);members=(m.data||[]).map(x=>({...x.profiles,role:x.role})).filter(Boolean);await loadMessages()}
 async function tvSignedAttachment(path){if(!path)return null;if(/^https?:\/\//i.test(path))return path;try{const r=await sb.functions.invoke('attachment-url',{body:{path}});if(!r.error&&r.data?.url)return r.data.url}catch{}try{const r=await sb.storage.from('attachments').createSignedUrl(path,3600);if(!r.error&&r.data?.signedUrl)return r.data.signedUrl}catch{}return null}
