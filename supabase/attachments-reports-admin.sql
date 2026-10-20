@@ -1,6 +1,6 @@
 -- TvCord attachment/report/admin hardening migration.
 -- Run after schema.sql, social.sql, and launch-safety.sql in Supabase SQL Editor.
--- This configures a 50 MiB upload cap and requires a successful server-side scan verdict before an attachment can be published. Scanner providers must be configured in Edge Function secrets.
+-- This configures a private 50 MiB attachment bucket. Images are checked by Google Cloud Vision; other file types are accepted but are NOT malware-scanned.
 create extension if not exists pgcrypto;
 
 -- Keep attachments private. Only the authenticated Edge Functions can read them and mint short-lived signed URLs after membership checks.
@@ -34,6 +34,7 @@ for select to authenticated using (
   bucket_id = 'avatars' or (bucket_id = 'attachments' and (storage.foldername(name))[1] = auth.uid()::text)
 );
 drop policy if exists "Users update their own TvCord media" on storage.objects;
+drop policy if exists "Users update their own TvCord avatars" on storage.objects;
 create policy "Users update their own TvCord avatars" on storage.objects
 for update to authenticated using (
   bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
