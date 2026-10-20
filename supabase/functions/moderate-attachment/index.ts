@@ -40,41 +40,25 @@ Deno.serve(async (req) => {
   if (downloadError || !object) return json(404, { safe: false, reason: "Uploaded file could not be retrieved for scanning." });
   if (object.size !== size) return json(400, { safe: false, reason: "File size verification failed." });
 
-  // Images must pass Google Cloud Vision SafeSearch. Non-image files bypass scanning below.
+  // Free built-in image checks: verify file signatures and reject unsupported/active formats.
+  // These checks validate file format only; they cannot determine whether an image is explicit.
   if (mime.startsWith("image/")) {
-    const key = Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY");
-    if (!key) return json(503, { safe: false, reason: "Google Cloud Vision API key is not configured." });
-    if (size > 18 * 1024 * 1024) return json(413, { safe: false, reason: "Images larger than 18 MB cannot be checked by the configured Vision request; try an image under 18 MB." });
+    if (size > 18 * 1024 * 1024) return json(413, { safe: false, reason: "Images must be 18 MB or smaller." });
     const bytes = new Uint8Array(await object.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    const content = btoa(binary);
-    let response: Response;
-    try {
-      response = await fetch("https://vision.googleapis.com/v1/images:annotate?key=" + encodeURIComponent(key), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requests: [{ image: { content }, features: [{ type: "SAFE_SEARCH_DETECTION" }] }] }),
-      });
-    } catch {
-      return json(503, { safe: false, reason: "Could not connect to Google Cloud Vision. Check the Edge Function network/API configuration and try again." });
+    const starts = (...values: number[]) => values.every((v, i) => bytes[i] === v);
+    const ascii = (from: number, count: number) => String.fromCharCode(...bytes.subarray(from, from + count));
+    const validJpeg = mime === "image/jpeg" && starts(0xff, 0xd8, 0xff);
+    const validPng = mime === "image/png" && starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+    const validGif = mime === "image/gif" && (ascii(0, 6) === "GIF87a" || ascii(0, 6) === "GIF89a");
+    const validWebp = mime === "image/webp" && ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP";
+    const validAvif = mime === "image/avif" && ascii(4, 4) === "ftyp" && /^(avif|avis|mif1|msf1)$/.test(ascii(8, 4));
+    if (!(validJpeg || validPng || validGif || validWebp || validAvif)) {
+      return json(415, { safe: false, reason: "Image file type does not match its contents or is not supported. Try a JPG, PNG, GIF, WebP, or AVIF image." });
     }
-    if (!response.ok) {
-      // Do not return the request URL or API key to the client.
-      return json(503, { safe: false, reason: "Google Cloud Vision returned HTTP " + response.status + ". Check that the Vision API is enabled, the API key is valid, and billing/key restrictions allow this request." });
+    if (!await recordSafe("basic image format validation; no content moderation")) {
+      return json(503, { safe: false, reason: "Image validation result could not be recorded; upload blocked." });
     }
-    let result: any;
-    try { result = await response.json(); } catch {
-      return json(503, { safe: false, reason: "Google Cloud Vision returned an unreadable response; image upload blocked." });
-    }
-    const annotations = result?.responses?.[0]?.safeSearchAnnotation;
-    if (!annotations) return json(503, { safe: false, reason: "Google Cloud Vision returned no safety verdict; image upload blocked." });
-    const severe = new Set(["LIKELY", "VERY_LIKELY"]);
-    if (severe.has(annotations.adult) || severe.has(annotations.racy) || severe.has(annotations.violence)) {
-      return json(200, { safe: false, reason: "The image was blocked by Google Cloud Vision SafeSearch." });
-    }
-    if (!await recordSafe("Google Cloud Vision SafeSearch")) return json(503, { safe: false, reason: "Vision safety verdict could not be recorded; image upload blocked." });
-    return json(200, { safe: true, scanned: true, scanner: "Google Cloud Vision SafeSearch" });
+    return json(200, { safe: true, scanned: false, scanner: "basic image format validation", warning: "Image content was not checked for explicit material." });
   }
 
   // Non-image files (PDFs, ZIPs, documents, and other types) are accepted without a malware scanner.
