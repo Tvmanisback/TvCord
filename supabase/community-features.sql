@@ -1,4 +1,50 @@
 -- TvCord community systems: server profiles, discovery, roles, custom emoji and TvBoosters.
+
+-- Storage for uploaded server icons, banners and custom emojis.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('server-assets', 'server-assets', true, 10485760, array['image/png','image/jpeg','image/webp','image/gif'])
+on conflict (id) do update set
+  public = true,
+  file_size_limit = 10485760,
+  allowed_mime_types = array['image/png','image/jpeg','image/webp','image/gif'];
+
+drop policy if exists "Server assets are publicly readable" on storage.objects;
+create policy "Server assets are publicly readable"
+on storage.objects for select to public
+using (bucket_id = 'server-assets');
+
+drop policy if exists "Server managers upload server assets" on storage.objects;
+create policy "Server managers upload server assets"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'server-assets'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.can_manage_server(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "Server managers update server assets" on storage.objects;
+create policy "Server managers update server assets"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'server-assets'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.can_manage_server(((storage.foldername(name))[1])::uuid)
+)
+with check (
+  bucket_id = 'server-assets'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.can_manage_server(((storage.foldername(name))[1])::uuid)
+);
+
+drop policy if exists "Server managers delete server assets" on storage.objects;
+create policy "Server managers delete server assets"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'server-assets'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.can_manage_server(((storage.foldername(name))[1])::uuid)
+);
+
 -- Run in Supabase SQL Editor after schema.sql and social.sql.
 
 alter table public.servers
