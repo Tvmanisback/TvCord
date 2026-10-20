@@ -29,8 +29,7 @@ Deno.serve(async (req) => {
   const size = Number(body.size || 0);
   if (!path.startsWith(user.id + "/") || path.includes("..") || path.length > 300) return json(403, { safe: false, reason: "You can only scan your own uploads." });
   if (!Number.isSafeInteger(size) || size < 1 || size > 50 * 1024 * 1024) return json(413, { safe: false, reason: "File exceeds the 50 MB limit." });
-  const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf", "text/plain", "application/zip", "application/x-zip-compressed"]);
-  if (!allowed.has(mime)) return json(415, { safe: false, reason: "File type is not allowed." });
+  if (!mime || mime.length > 150 || /[\\r\\n]/.test(mime)) return json(415, { safe: false, reason: "A valid file content type is required." });
 
   const db = createClient(url, service);
   const recordSafe = async (scanner: string) => {
@@ -72,7 +71,8 @@ Deno.serve(async (req) => {
   const scannerUrl = Deno.env.get("TVCORD_FILE_SCANNER_URL");
   const scannerToken = Deno.env.get("TVCORD_FILE_SCANNER_TOKEN");
   if (!scannerUrl || !scannerToken) return json(503, { safe: false, reason: "File malware scanner is not configured; this upload is blocked." });
-  const scanResponse = await fetch(scannerUrl, {
+  let scanResponse: Response;
+  try { scanResponse = await fetch(scannerUrl, {
     method: "POST",
     headers: {
       "Authorization": "Bearer " + scannerToken,
@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
       "X-Expected-Size": String(size),
     },
     body: object,
-  });
-  if (!scanResponse.ok) return json(503, { safe: false, reason: "File scanner unavailable; upload blocked." });
+  }); } catch { return json(503, { safe: false, reason: "File scanner could not be reached; upload blocked." }); }
+  if (!scanResponse.ok) return json(503, { safe: false, reason: "File scanner returned HTTP " + scanResponse.status + "; upload blocked." });
   let scanResult: { clean?: boolean; infected?: boolean };
   try { scanResult = await scanResponse.json(); } catch { return json(503, { safe: false, reason: "File scanner returned an invalid verdict; upload blocked." }); }
   if (scanResult.clean !== true || scanResult.infected === true) return json(200, { safe: false, reason: "File was blocked by malware screening." });
