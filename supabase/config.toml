@@ -9,3 +9,6 @@ verify_jwt = true
 
 [functions.attachment-url]
 verify_jwt = true
+
+[functions.ensure-default-server]
+verify_jwt = true
