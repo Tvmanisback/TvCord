@@ -24,6 +24,8 @@ function App() {
   const [activeChannel, setActiveChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
+  const [myBots, setMyBots] = useState([]);
+  const [loadingBots, setLoadingBots] = useState(false);
   const [draft, setDraft] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -91,7 +93,16 @@ function App() {
       const { data: people } = await supabase.from('server_members')
         .select('role, profiles(id,username,avatar_url,status_text)')
         .eq('server_id', activeServer.id);
-      if (live) setMembers((people || []).map(m => ({ ...m.profiles, role: m.role })).filter(Boolean));
+      const { data: bots, error: botsError } = await supabase.rpc('get_tvcord_server_bots', { p_server_id: activeServer.id });
+      if (live) {
+        const humanMembers = (people || []).map(m => ({ ...m.profiles, role: m.role })).filter(Boolean);
+        const botMembers = botsError ? [] : (bots || []).map(b => ({
+          id: 'bot:' + b.bot_id, username: b.name, avatar_url: null,
+          status_text: 'TvCord bot', role: 'member', isBot: true
+        }));
+        setMembers([...humanMembers, ...botMembers]);
+        if (botsError && !String(botsError.message || '').includes('get_tvcord_server_bots')) show(botsError.message);
+      }
     })();
     return () => { live = false; };
   }, [activeServer]);
@@ -212,6 +223,27 @@ function App() {
     await navigator.clipboard.writeText(activeServer.invite_code);
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   }
+  async function openAddBot() {
+    if (!activeServer) return show('Choose a server first.');
+    setLoadingBots(true);
+    setMyBots([]);
+    setModal('add-bot');
+    const { data, error } = await supabase.from('tvcord_bots')
+      .select('id,name,language').eq('owner_id', session.user.id).order('created_at', { ascending: false });
+    setLoadingBots(false);
+    if (error) return show(error.message + ' — make sure supabase/bots.sql and supabase/bot-settings-invites.sql have been run.');
+    setMyBots(data || []);
+  }
+  async function inviteBotToActiveServer(bot) {
+    if (!activeServer || !bot) return;
+    const { error } = await supabase.rpc('invite_tvcord_bot_to_server', {
+      p_bot_id: bot.id, p_server_id: activeServer.id
+    });
+    if (error) return show(error.message);
+    setModal('');
+    setActiveServer(current => current ? { ...current } : current);
+    show(bot.name + ' was added to ' + activeServer.name + '.');
+  }
 
   if (!configured) return <SetupScreen />;
   if (!session) return <div className="auth-page"><div className="auth-glow"></div><div className="auth-card">
@@ -243,7 +275,10 @@ function App() {
           {channels.filter(c=>c.type==='text').map(c=><button key={c.id} className={'channel-row '+(activeChannel?.id===c.id?'active':'')} onClick={()=>{setActiveChannel(c);setMobileNav(false)}}><Hash size={17}/><span>{c.name}</span></button>)}
           <div className="section-label voice-label"><span>VOICE CHANNELS</span></div>
           {channels.filter(c=>c.type==='voice').map(c=><button key={c.id} className="channel-row"><Volume2 size={17}/><span>{c.name}</span></button>)}
-          <div className="server-tools"><button onClick={()=>setModal('server-info')}><Users size={15}/> Invite & server info</button></div>
+          <div className="server-tools">
+            <button onClick={()=>setModal('server-info')}><Users size={15}/> Invite & server info</button>
+            <button onClick={openAddBot}><Plus size={15}/> Add a bot</button>
+          </div>
         </>}
       </div>
       <div className="user-bar">
@@ -284,7 +319,7 @@ function App() {
       <div className="members-heading">MEMBERS — {members.length}</div>
       {['owner','admin','member'].map(role=>{
         const group=members.filter(m=>m.role===role);
-        return group.length ? <div key={role} className="member-group"><div className="role-label">{role==='owner'?'SERVER OWNER':role==='admin'?'ADMINISTRATORS':'MEMBERS'} — {group.length}</div>{group.map(m=><div className="member-row" key={m.id}><div className="avatar member-avatar">{m.avatar_url?<img src={m.avatar_url} alt=""/>:initials(m.username)}<span className="online-dot"/></div><div className="member-info"><strong>{m.username||'User'}</strong><span>{m.status_text||'Online'}</span></div>{m.id===session.user.id&&<span className="you-label">YOU</span>}</div>)}</div>:null;
+        return group.length ? <div key={role} className="member-group"><div className="role-label">{role==='owner'?'SERVER OWNER':role==='admin'?'ADMINISTRATORS':'MEMBERS'} — {group.length}</div>{group.map(m=><div className="member-row" key={m.id}><div className="avatar member-avatar">{m.avatar_url?<img src={m.avatar_url} alt=""/>:initials(m.username)}<span className="online-dot"/></div><div className="member-info"><strong>{m.username||'User'}</strong><span>{m.status_text||'Online'}</span></div>{m.isBot&&<span className="you-label">BOT</span>}{m.id===session.user.id&&<span className="you-label">YOU</span>}</div>)}</div>:null;
       })}
       {!members.length&&<p className="muted no-members">Members appear here when you join a server.</p>}
     </aside>}
@@ -292,6 +327,9 @@ function App() {
     {modal && <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal('')}}>
       <div className="modal-card">
         <button className="modal-close icon-button" onClick={()=>setModal('')}><X size={19}/></button>
+        {modal==='add-bot'&&<><div className="modal-icon"><Users/></div><h2>Add a bot</h2><p className="muted">Choose one of your registered TvCord bots to add it to {activeServer?.name || 'this server'}. Bots appear in the server members list.</p>
+          {loadingBots?<p className="muted">Loading your bots…</p>:myBots.length?<div className="bot-picker">{myBots.map(bot=><div className="bot-picker-row" key={bot.id}><div className="avatar member-avatar">🤖</div><div className="member-info"><strong>{bot.name}</strong><span>{bot.language} bot</span></div><button className="primary" onClick={()=>inviteBotToActiveServer(bot)}>Add</button></div>)}</div>:<div className="empty-bots"><p className="muted">You haven't registered any bots yet.</p><a href="https://tvmanisback.github.io/TvCord/developer-portal/" target="_blank" rel="noreferrer">Open the TvCord Developer Portal</a></div>}
+          </>}
         {modal==='create-server'&&<><div className="modal-icon"><Plus/></div><h2>Create a server</h2><p className="muted">Start a space for friends, a club, or your community.</p><form onSubmit={createServer} className="stack"><label>Server name<input autoFocus value={serverName} onChange={e=>setServerName(e.target.value)} placeholder="My awesome server" maxLength="80" required/></label><button className="primary full" disabled={busy||!serverName.trim()}>{busy?'Creating…':'Create server'}</button></form></>}
         {modal==='join-server'&&<><div className="modal-icon"><Compass/></div><h2>Join a server</h2><p className="muted">Paste the invite code shared by a server member.</p><form onSubmit={joinServer} className="stack"><label>Invite code<input autoFocus value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="Paste invite code" required/></label><button className="primary full">Join server</button></form></>}
         {modal==='create-channel'&&<><div className="modal-icon"><Hash/></div><h2>Create a channel</h2><p className="muted">Add a text channel to {activeServer?.name}.</p><form onSubmit={createChannel} className="stack"><label>Channel name<input autoFocus value={channelName} onChange={e=>setChannelName(e.target.value)} placeholder="general-chat" maxLength="60" required/></label><button className="primary full">Create channel</button></form></>}
