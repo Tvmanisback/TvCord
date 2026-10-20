@@ -180,3 +180,15 @@ grant execute on function public.get_discoverable_servers() to authenticated;
 grant execute on function public.set_server_discovery(uuid,boolean) to authenticated;
 
 -- Role and emoji writes are limited by RLS to server managers; clients cannot edit wallet rows.
+
+-- Do not expose server invite codes through anonymous RPC calls.
+revoke all on function public.get_my_tvboosters() from public,anon;
+revoke all on function public.boost_server(uuid) from public,anon;
+revoke all on function public.give_tvboosters(uuid,integer) from public,anon;
+revoke all on function public.get_discoverable_servers() from public,anon;
+revoke all on function public.set_server_discovery(uuid,boolean) from public,anon;
+grant execute on function public.get_my_tvboosters() to authenticated;
+grant execute on function public.boost_server(uuid) to authenticated;
+grant execute on function public.give_tvboosters(uuid,integer) to authenticated;
+grant execute on function public.get_discoverable_servers() to authenticated;
+grant execute on function public.set_server_discovery(uuid,boolean) to authenticated;
