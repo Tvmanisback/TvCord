@@ -7,7 +7,7 @@ create table if not exists public.tvcord_bots (
   owner_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (length(name) between 1 and 50),
   language text not null check (language in ('JavaScript','Python','Ruby','Lua')),
-  filename text not null check (filename in ('TvCord.js','TvCord.py','TvCord.rb','TvCord.lua')),
+  filename text not null check (filename in ('bot.js','bot.py','bot.rb','bot.lua')),
   token_hash text not null,
   token_prefix text not null,
   created_at timestamptz not null default now()
@@ -48,17 +48,17 @@ begin
   if length(v_name) < 1 or length(v_name) > 50 then
     raise exception 'Bot name must be 1 to 50 characters.';
   end if;
-  if p_filename not in ('TvCord.js','TvCord.py','TvCord.rb','TvCord.lua') then
-    raise exception 'Choose a file named exactly TvCord.js, TvCord.py, TvCord.rb, or TvCord.lua.';
+  if p_filename not in ('bot.js','bot.py','bot.rb','bot.lua') then
+    raise exception 'Choose a bot entry file named bot.js, bot.py, bot.rb, or bot.lua.';
   end if;
-  if (p_filename = 'TvCord.js' and p_language <> 'JavaScript')
-    or (p_filename = 'TvCord.py' and p_language <> 'Python')
-    or (p_filename = 'TvCord.rb' and p_language <> 'Ruby')
-    or (p_filename = 'TvCord.lua' and p_language <> 'Lua') then
-    raise exception 'The selected language does not match the file extension.';
+  if (p_filename = 'bot.js' and p_language <> 'JavaScript')
+    or (p_filename = 'bot.py' and p_language <> 'Python')
+    or (p_filename = 'bot.rb' and p_language <> 'Ruby')
+    or (p_filename = 'bot.lua' and p_language <> 'Lua') then
+    raise exception 'The selected language does not match the bot entry file extension.';
   end if;
-  if position('Include TvCord' in coalesce(p_source, '')) = 0 then
-    raise exception 'Your bot file must contain the exact text: Include TvCord';
+  if position('TvCord' in coalesce(p_source, '')) = 0 then
+    raise exception 'Import the TvCord API library in your bot source.';
   end if;
   if length(coalesce(p_source, '')) > 1000000 then
     raise exception 'Bot source file is too large (1 MB maximum).';
