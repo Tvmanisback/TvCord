@@ -65,7 +65,7 @@ create policy "Managers manage custom emojis" on public.server_emojis for all to
 -- Monthly balance is materialized on demand, so every user receives two tokens per calendar month.
 create or replace function public.get_my_tvboosters()
 returns integer language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare n integer;
 begin
  if auth.uid() is null then raise exception 'Log in first.'; end if;
@@ -75,11 +75,11 @@ begin
  select balance into n from public.tvbooster_wallets
  where user_id=auth.uid() and month_start=date_trunc('month',now())::date;
  return coalesce(n,0);
-end $$;
+end $tvcord$;
 
 create or replace function public.boost_server(target_server uuid)
 returns jsonb language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare wallet integer; lvl integer; total integer;
 begin
  if auth.uid() is null then raise exception 'Log in first.'; end if;
@@ -93,11 +93,11 @@ begin
  update public.servers set total_boosters=total_boosters+1,level=level+1
  where id=target_server returning level,total_boosters into lvl,total;
  return jsonb_build_object('balance',wallet,'level',lvl,'total_boosters',total);
-end $$;
+end $tvcord$;
 
 create or replace function public.give_tvboosters(target_user uuid, amount integer)
 returns integer language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare n integer;
 begin
  if auth.uid() is null then raise exception 'Log in first.'; end if;
@@ -111,12 +111,12 @@ begin
  on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
  returning balance into n;
  return n;
-end $$;
+end $tvcord$;
 
 create or replace function public.get_discoverable_servers()
 returns table(id uuid,name text,description text,icon_url text,banner_url text,level integer,total_boosters integer,member_count bigint,invite_code text)
 language sql stable security definer set search_path=public
-as $$
+as $tvcord$
  select s.id,s.name,s.description,s.icon_url,s.banner_url,s.level,s.total_boosters,
         count(sm.user_id) as member_count,s.invite_code
  from public.servers s left join public.server_members sm on sm.server_id=s.id
@@ -124,11 +124,11 @@ as $$
  group by s.id
  having count(sm.user_id)>=15
  order by s.level desc,count(sm.user_id) desc,s.name;
-$$;
+$tvcord$;
 
 create or replace function public.set_server_discovery(target_server uuid, enabled boolean)
 returns boolean language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare n bigint; lvl integer;
 begin
  if not public.can_manage_server(target_server) then raise exception 'Only server owners and admins can change discovery.'; end if;
@@ -137,11 +137,11 @@ begin
  if enabled and (n<15 or lvl<10) then raise exception 'Discovery requires at least 15 members and server level 10.'; end if;
  update public.servers set discoverable=enabled where id=target_server;
  return enabled;
-end $$;
+end $tvcord$;
 
 create or replace function public.ensure_tvcord_home_server(admin_id uuid, joining_user uuid)
 returns jsonb language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare home public.servers%rowtype; cid uuid; names text[] := array[
  'welcome','announcements','rules','general','introductions','chat','media','memes','gaming','music',
  'art','pets','suggestions','questions','bot-commands','clips','off-topic','help','events','polls',
@@ -170,7 +170,7 @@ begin
   on conflict(server_id,name) do update set type=excluded.type,position=excluded.position;
  end loop;
  return jsonb_build_object('ok',true,'server_id',home.id,'admin_user_id',admin_id,'is_admin',joining_user=admin_id);
-end $$;
+end $tvcord$;
 revoke all on function public.ensure_tvcord_home_server(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.ensure_tvcord_home_server(uuid,uuid) to service_role;
 grant execute on function public.get_my_tvboosters() to authenticated;
@@ -198,7 +198,7 @@ alter table public.server_roles add column if not exists can_manage_server boole
 
 create or replace function public.can_manage_server(target_server uuid)
 returns boolean language sql stable security definer set search_path=public
-as $$
+as $tvcord$
  select exists(
    select 1 from public.server_members sm
    where sm.server_id=target_server and sm.user_id=auth.uid() and sm.role in ('owner','admin')
@@ -207,21 +207,21 @@ as $$
    join public.server_roles sr on sr.id=mr.role_id and sr.server_id=mr.server_id
    where mr.server_id=target_server and mr.user_id=auth.uid() and sr.can_manage_server=true
  );
-$$;
+$tvcord$;
 
 create or replace function public.is_tvcord_admin()
 returns boolean language sql stable security definer set search_path=public
-as $$
+as $tvcord$
  select exists(
    select 1 from public.servers s
    join public.server_members sm on sm.server_id=s.id
    where lower(s.name)='tvcord' and sm.user_id=auth.uid() and sm.role in ('owner','admin')
  );
-$$;
+$tvcord$;
 
 create or replace function public.give_tvboosters(target_user uuid, amount integer)
 returns integer language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare n integer;
 begin
  if auth.uid() is null then raise exception 'Log in first.'; end if;
@@ -236,7 +236,7 @@ begin
  on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
  returning balance into n;
  return n;
-end $$;
+end $tvcord$;
 
 revoke all on function public.is_tvcord_admin() from public,anon;
 grant execute on function public.is_tvcord_admin() to authenticated;
@@ -246,7 +246,7 @@ grant execute on function public.give_tvboosters(uuid,integer) to service_role;
 -- This grant RPC is backend-only. The admin-ban Edge Function checks TVCORD_ADMIN_USER_IDS first.
 create or replace function public.admin_give_tvboosters(target_user uuid, amount integer)
 returns integer language plpgsql security definer set search_path=public
-as $$
+as $tvcord$
 declare n integer; home_id uuid; month_date date := date_trunc('month',now())::date;
 begin
  if target_user is null then raise exception 'Recipient is required.'; end if;
@@ -261,7 +261,7 @@ begin
  on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
  returning balance into n;
  return n;
-end $$;
+end $tvcord$;
 revoke all on function public.admin_give_tvboosters(uuid,integer) from public,anon,authenticated;
 grant execute on function public.admin_give_tvboosters(uuid,integer) to service_role;
 
