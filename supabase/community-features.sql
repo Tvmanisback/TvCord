@@ -192,3 +192,53 @@ grant execute on function public.boost_server(uuid) to authenticated;
 grant execute on function public.give_tvboosters(uuid,integer) to authenticated;
 grant execute on function public.get_discoverable_servers() to authenticated;
 grant execute on function public.set_server_discovery(uuid,boolean) to authenticated;
+
+-- Server settings are a separate permission granted only by the server owner.
+alter table public.server_roles add column if not exists can_manage_server boolean not null default false;
+
+create or replace function public.can_manage_server(target_server uuid)
+returns boolean language sql stable security definer set search_path=public
+as $$
+ select exists(
+   select 1 from public.server_members sm
+   where sm.server_id=target_server and sm.user_id=auth.uid() and sm.role in ('owner','admin')
+ ) or exists(
+   select 1 from public.member_roles mr
+   join public.server_roles sr on sr.id=mr.role_id and sr.server_id=mr.server_id
+   where mr.server_id=target_server and mr.user_id=auth.uid() and sr.can_manage_server=true
+ );
+$$;
+
+create or replace function public.is_tvcord_admin()
+returns boolean language sql stable security definer set search_path=public
+as $$
+ select exists(
+   select 1 from public.servers s
+   join public.server_members sm on sm.server_id=s.id
+   where lower(s.name)='tvcord' and sm.user_id=auth.uid() and sm.role in ('owner','admin')
+ );
+$$;
+
+create or replace function public.give_tvboosters(target_user uuid, amount integer)
+returns integer language plpgsql security definer set search_path=public
+as $$
+declare n integer;
+begin
+ if auth.uid() is null then raise exception 'Log in first.'; end if;
+ if not public.is_tvcord_admin() then raise exception 'Only TvCord administrators can give TvBoosters.'; end if;
+ if amount<1 or amount>100 then raise exception 'Amount must be between 1 and 100.'; end if;
+ if not exists(select 1 from public.server_members sm
+   where sm.user_id=target_user and sm.server_id=(select s.id from public.servers s where lower(s.name)='tvcord' order by s.created_at asc limit 1))
+ then raise exception 'The recipient must be a member of the official TvCord server.'; end if;
+ perform public.get_my_tvboosters();
+ insert into public.tvbooster_wallets(user_id,month_start,balance)
+ values(target_user,date_trunc('month',now())::date,2+amount)
+ on conflict(user_id,month_start) do update set balance=public.tvbooster_wallets.balance+amount
+ returning balance into n;
+ return n;
+end $$;
+
+revoke all on function public.is_tvcord_admin() from public,anon;
+grant execute on function public.is_tvcord_admin() to authenticated;
+revoke all on function public.give_tvboosters(uuid,integer) from public,anon;
+grant execute on function public.give_tvboosters(uuid,integer) to authenticated;
