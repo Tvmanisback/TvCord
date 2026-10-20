@@ -15,6 +15,12 @@ create table if not exists public.tvcord_bots (
 
 -- Update older installations that used TvCord.* as the bot entry filename.
 alter table public.tvcord_bots drop constraint if exists tvcord_bots_filename_check;
+update public.tvcord_bots set filename = case filename
+  when 'TvCord.js' then 'bot.js'
+  when 'TvCord.py' then 'bot.py'
+  when 'TvCord.rb' then 'bot.rb'
+  when 'TvCord.lua' then 'bot.lua'
+  else filename end;
 alter table public.tvcord_bots add constraint tvcord_bots_filename_check
   check (filename in ('bot.js','bot.py','bot.rb','bot.lua'));
 
