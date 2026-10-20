@@ -24,7 +24,12 @@
   });
   window.addEventListener('unhandledrejection',function(e){
     var s=document.getElementById('configError');
-    if(s){s.textContent='TvCord startup error: '+(e.reason&&e.reason.message||'Connection failed');}
+    var reason=e.reason;
+    var message=reason&&typeof reason==='object'?(reason.message||reason.name||'Unhandled promise rejection'):String(reason||'Connection failed');
+    console.error('TvCord unhandled rejection:',reason);
+    if(s && /^(Starting TvCord…|Connecting…|Trying backup connection library…)$/.test(s.textContent.trim())){
+      s.textContent='TvCord startup failed: '+message+'. Refresh the page; if it repeats, open the site in a private window to test without an old saved session.';
+    }
   });
 })();
 </script>
@@ -259,7 +264,7 @@ window.tvReject=async id=>{let r=await sb.from('friendships').delete().eq('id',i
 window.tvDM=async other=>{let r=await sb.rpc('get_or_create_dm',{other_user:other});if(r.error)return notify(r.error.message);view='dm';modal('Direct messages','<p class="muted">DM conversation created. DM tables and realtime transport require the TvCord social migration to be run in Supabase.</p><code>'+esc(r.data)+'</code>')};
 window.tvLogout=async()=>{const r=await sb.auth.signOut();if(r.error)return notify(r.error.message);};
 const startupTimeout = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase did not respond in time. Check the project URL, public key, and Supabase status.')), ms));
-Promise.race([sb.auth.getSession(), startupTimeout(12000)]).then(async({data,error})=>{
+Promise.resolve().then(()=>Promise.race([Promise.resolve().then(()=>sb.auth.getSession()), startupTimeout(12000)])).then(async({data,error})=>{
  if(error)throw error;
  session=data.session;
  if(session){$('configError').textContent='Signing you in…';return boot()}
