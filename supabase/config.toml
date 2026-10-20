@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.moderate-attachment]
 verify_jwt = true
+
+[functions.attachment-url]
+verify_jwt = true
