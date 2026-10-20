@@ -7,12 +7,12 @@ create extension if not exists pgcrypto;
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
 values (
   'attachments', 'attachments', false, 52428800,
-  array['image/jpeg','image/png','image/webp','image/gif','application/pdf','text/plain','application/zip','application/x-zip-compressed']
+  null
 )
 on conflict (id) do update
 set public = false,
     file_size_limit = 52428800,
-    allowed_mime_types = excluded.allowed_mime_types;
+    allowed_mime_types = null;
 
 -- A file cannot be attached to a message until the trusted scanner records a clean verdict.
 create table if not exists public.attachment_scan_results (
