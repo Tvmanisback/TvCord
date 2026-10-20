@@ -11,12 +11,20 @@ alter table public.profiles
   drop constraint if exists profiles_profile_background_hex_check,
   add constraint profiles_profile_background_hex_check
     check (
-      profile_background ~ '^#[0-9A-Fa-f]{6}$'
+      (
+        length(profile_background) = 7
+        and left(profile_background, 1) = '#'
+        and translate(substring(profile_background from 2), '0123456789ABCDEFabcdef', '') = ''
+      )
       or profile_background in ('default', 'midnight', 'ocean', 'sunset', 'forest', 'galaxy')
     ),
   drop constraint if exists profiles_profile_accent_hex_check,
   add constraint profiles_profile_accent_hex_check
-    check (profile_accent ~ '^#[0-9A-Fa-f]{6}$'),
+    check (
+      length(profile_accent) = 7
+      and left(profile_accent, 1) = '#'
+      and translate(substring(profile_accent from 2), '0123456789ABCDEFabcdef', '') = ''
+    ),
   drop constraint if exists profiles_profile_decoration_check,
   add constraint profiles_profile_decoration_check
     check (profile_decoration in ('none', 'rainbow', 'gold', 'blue')),
