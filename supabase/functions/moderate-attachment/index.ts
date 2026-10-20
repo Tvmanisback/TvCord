@@ -66,26 +66,12 @@ Deno.serve(async (req) => {
     return json(200, { safe: true, scanner: "Google Cloud Vision SafeSearch", verdict: annotations });
   }
 
-  // PDFs, archives and text files require a trusted malware scanning endpoint.
-  // The endpoint must accept raw bytes and return JSON { "clean": true } only after scanning.
-  const scannerUrl = Deno.env.get("TVCORD_FILE_SCANNER_URL");
-  const scannerToken = Deno.env.get("TVCORD_FILE_SCANNER_TOKEN");
-  if (!scannerUrl || !scannerToken) return json(503, { safe: false, reason: "File malware scanner is not configured; this upload is blocked." });
-  let scanResponse: Response;
-  try { scanResponse = await fetch(scannerUrl, {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + scannerToken,
-      "Content-Type": mime,
-      "X-Filename": String(body.file_name || "upload").replace(/[\r\n]/g, "").slice(0, 180),
-      "X-Expected-Size": String(size),
-    },
-    body: object,
-  }); } catch { return json(503, { safe: false, reason: "File scanner could not be reached; upload blocked." }); }
-  if (!scanResponse.ok) return json(503, { safe: false, reason: "File scanner returned HTTP " + scanResponse.status + "; upload blocked." });
-  let scanResult: { clean?: boolean; infected?: boolean };
-  try { scanResult = await scanResponse.json(); } catch { return json(503, { safe: false, reason: "File scanner returned an invalid verdict; upload blocked." }); }
-  if (scanResult.clean !== true || scanResult.infected === true) return json(200, { safe: false, reason: "File was blocked by malware screening." });
-  if (!await recordSafe("configured malware scanner")) return json(503, { safe: false, reason: "Safety verdict could not be recorded; upload blocked." });
-  return json(200, { safe: true, scanner: "configured malware scanner" });
+  // Non-image files (PDFs, ZIPs, Office documents, text files, and other types)
+  // are accepted without a malware scanner, as requested. This verdict means
+  // "accepted but NOT scanned"; it is not a claim that the file is malware-free.
+  // Keep the bucket private and deliver attachments as downloads where possible.
+  if (!await recordSafe("unscanned user upload")) {
+    return json(503, { safe: false, reason: "Upload verdict could not be recorded; upload blocked." });
+  }
+  return json(200, { safe: true, scanned: false, warning: "This file was not malware-scanned." });
 });
