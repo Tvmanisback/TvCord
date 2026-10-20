@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.ensure-default-server]
 verify_jwt = true
+[functions.tvcord-bot]
+# Bot tokens are validated by the gateway itself, not Supabase user JWT auth.
+verify_jwt = false
