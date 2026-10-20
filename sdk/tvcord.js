@@ -41,8 +41,16 @@ export class Bot {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: this.token, action, ...extra }),
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.error) throw new Error(payload.error || "TvCord gateway request failed.");
+    const raw = await response.text();
+    let payload = {};
+    try { payload = raw ? JSON.parse(raw) : {}; } catch {}
+    if (!response.ok || payload.error) {
+      const detail = payload.error || raw || response.statusText || "No response body";
+      throw new Error(`TvCord gateway HTTP ${response.status}: ${String(detail).slice(0, 700)}`);
+    }
+    if (!Object.prototype.hasOwnProperty.call(payload, "data")) {
+      throw new Error("TvCord gateway returned an unexpected response: " + String(raw).slice(0, 700));
+    }
     return payload.data;
   }
 
