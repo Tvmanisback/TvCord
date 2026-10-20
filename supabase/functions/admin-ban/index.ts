@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const admins = (Deno.env.get("TVCORD_ADMIN_USER_IDS") || "").split(/[\\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
+  const admins = (Deno.env.get("TVCORD_ADMIN_USER_IDS") || "").split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
   if (!url || !anon || !service || admins.length === 0) return json(503, { error: "Admin backend is not configured. Set TVCORD_ADMIN_USER_IDS and Supabase function secrets." });
   const auth = req.headers.get("Authorization");
   if (!auth) return json(401, { error: "Sign in required" });
