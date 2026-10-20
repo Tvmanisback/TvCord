@@ -4,6 +4,6 @@
  * This file is public by design. NEVER put a service_role key or other secret here.
  */
 window.TVCORD_CONFIG = {
-  supabaseUrl: "https://YOUR-PROJECT.supabase.co",
-  supabaseAnonKey: "YOUR_SUPABASE_ANON_PUBLIC_KEY"
+  supabaseUrl: "https://dbiinubzfmsqlzngrjoc.supabase.co",
+  supabaseAnonKey: "sb_publishable_yNjPLvPUWN05nLFUhMTIkA_uwnkxoGH"
 };
