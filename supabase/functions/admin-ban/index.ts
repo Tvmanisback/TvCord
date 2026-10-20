@@ -35,7 +35,10 @@ Deno.serve(async (req) => {
     if (error) return json(400, { error: error.message });
     return json(200, { ok: true, message: "Granted " + amount + " TvBoosters. Recipient balance: " + data, balance: data });
   }
-  if (target === user.id) return json(400, { error: "You cannot restrict your own admin account" });
+  // Self-restriction protection applies only to ban/unban actions, never TvBooster grants.
+  if ((body.action === "ban" || body.action === "unban") && target.toLowerCase() === user.id.toLowerCase()) {
+    return json(400, { error: "You cannot restrict your own admin account" });
+  }
   if (body.action === "unban") {
     const { error: authBanError } = await db.auth.admin.updateUserById(target, { ban_duration: "none" });
     if (authBanError) return json(500, { error: "Could not remove the Supabase Auth ban: " + authBanError.message });
